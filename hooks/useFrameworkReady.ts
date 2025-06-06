@@ -9,5 +9,5 @@ declare global {
 export function useFrameworkReady() {
   useEffect(() => {
     window.frameworkReady?.()
-  })
+  }, []) // Added empty dependency array to run only once
 }
