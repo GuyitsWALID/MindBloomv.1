@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChartBar as BarChart3, TrendingUp, Calendar, Brain, Heart, Target, Zap, Award } from 'lucide-react-native';
+import { ChartBar as BarChart3, TrendingUp, Calendar, Brain, Heart, Target, Zap, Award, Crown } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { analyticsService, wellnessService } from '@/lib/database';
+import { PremiumGate } from '@/components/PremiumGate';
 
 type TimeRange = 'week' | 'month' | 'year';
 
@@ -14,11 +16,13 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function AnalyticsScreen() {
   const { user } = useAuth();
   const { isDark } = useTheme();
+  const { isPremium } = useSubscription();
   const [selectedRange, setSelectedRange] = useState<TimeRange>('week');
   const [moodData, setMoodData] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [insights, setInsights] = useState<any[]>([]);
   const [streaks, setStreaks] = useState<any>({});
+  const [advancedAnalytics, setAdvancedAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -94,6 +98,12 @@ export default function AnalyticsScreen() {
       ];
       
       setInsights(generatedInsights);
+
+      // Load advanced analytics for premium users
+      if (isPremium) {
+        const advanced = await analyticsService.getAdvancedAnalytics(user.id);
+        setAdvancedAnalytics(advanced);
+      }
       
     } catch (error) {
       console.error('Error loading analytics data:', error);
@@ -133,6 +143,12 @@ export default function AnalyticsScreen() {
           <View style={styles.header}>
             <Text style={[styles.greeting, isDark && styles.darkText]}>Your Analytics 📊</Text>
             <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>Track your mental wellness journey</Text>
+            {isPremium && (
+              <View style={styles.premiumBadge}>
+                <Crown size={16} color="#F59E0B" />
+                <Text style={styles.premiumText}>Premium Analytics</Text>
+              </View>
+            )}
           </View>
 
           {/* Time Range Selector */}
@@ -204,6 +220,65 @@ export default function AnalyticsScreen() {
               </View>
             </View>
           </View>
+
+          {/* Advanced Analytics - Premium Feature */}
+          {isPremium ? (
+            advancedAnalytics && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Advanced Insights</Text>
+                
+                {/* Mood Patterns */}
+                <View style={[styles.advancedCard, isDark && styles.darkCard]}>
+                  <Text style={[styles.advancedTitle, isDark && styles.darkText]}>Mood Patterns</Text>
+                  <Text style={[styles.advancedDescription, isDark && styles.darkSubtitle]}>
+                    Your mood is trending {advancedAnalytics.moodPatterns.trends.direction} with a 
+                    {advancedAnalytics.moodPatterns.trends.change > 0 ? ' positive' : ' negative'} change 
+                    of {Math.abs(advancedAnalytics.moodPatterns.trends.change)} points.
+                  </Text>
+                </View>
+
+                {/* Activity Correlations */}
+                <View style={[styles.advancedCard, isDark && styles.darkCard]}>
+                  <Text style={[styles.advancedTitle, isDark && styles.darkText]}>Activity Impact</Text>
+                  {advancedAnalytics.activityCorrelations.slice(0, 3).map((correlation: any, index: number) => (
+                    <View key={index} style={styles.correlationRow}>
+                      <Text style={[styles.correlationActivity, isDark && styles.darkText]}>
+                        {correlation.activity.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                      </Text>
+                      <Text style={[styles.correlationImpact, { color: correlation.averageImpact > 6 ? '#10B981' : '#F59E0B' }]}>
+                        {correlation.averageImpact.toFixed(1)}/10
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Personalized Recommendations */}
+                <View style={[styles.advancedCard, isDark && styles.darkCard]}>
+                  <Text style={[styles.advancedTitle, isDark && styles.darkText]}>AI Recommendations</Text>
+                  {advancedAnalytics.recommendations.map((rec: any, index: number) => (
+                    <View key={index} style={styles.recommendationItem}>
+                      <Text style={[styles.recommendationTitle, isDark && styles.darkText]}>{rec.title}</Text>
+                      <Text style={[styles.recommendationDescription, isDark && styles.darkSubtitle]}>
+                        {rec.description}
+                      </Text>
+                      <View style={styles.recommendationActions}>
+                        {rec.actions.slice(0, 2).map((action: string, actionIndex: number) => (
+                          <Text key={actionIndex} style={[styles.recommendationAction, isDark && styles.darkSubtitle]}>
+                            • {action}
+                          </Text>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )
+          ) : (
+            <PremiumGate
+              feature="Advanced Analytics"
+              description="Get detailed mood patterns, activity correlations, and personalized AI recommendations to optimize your wellness journey."
+            />
+          )}
 
           {/* Streaks Section */}
           <View style={styles.section}>
@@ -312,26 +387,6 @@ export default function AnalyticsScreen() {
               </View>
             </View>
           </View>
-
-          {/* AI Recommendations */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>AI Recommendations</Text>
-            <View style={[styles.recommendationsCard, isDark && styles.darkCard]}>
-              <Text style={[styles.recommendationText, isDark && styles.darkText]}>
-                Based on your patterns, try scheduling meditation on Wednesday mornings to help manage mid-week stress peaks. Your consistency with breathing exercises is excellent - consider adding a gratitude practice to boost weekend energy levels.
-              </Text>
-              <View style={styles.recommendationActions}>
-                <TouchableOpacity style={styles.recommendationButton}>
-                  <Text style={styles.recommendationButtonText}>Set Reminder</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.secondaryButton, isDark && styles.darkSecondaryButton]}>
-                  <Text style={[styles.secondaryButtonText, isDark && styles.darkSecondaryButtonText]}>
-                    Learn More
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
         </ScrollView>
       </LinearGradient>
     </SafeAreaView>
@@ -368,6 +423,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 24,
     paddingTop: 16,
+    alignItems: 'center',
   },
   greeting: {
     fontSize: 28,
@@ -379,6 +435,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
+    marginBottom: 16,
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  premiumText: {
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    color: '#F59E0B',
+    marginLeft: 4,
   },
   timeRangeContainer: {
     flexDirection: 'row',
@@ -505,6 +576,71 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
     marginBottom: 16,
+  },
+  advancedCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  advancedTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  advancedDescription: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  correlationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  correlationActivity: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#1F2937',
+  },
+  correlationImpact: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+  },
+  recommendationItem: {
+    marginBottom: 16,
+  },
+  recommendationTitle: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  recommendationDescription: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  recommendationActions: {
+    marginLeft: 12,
+  },
+  recommendationAction: {
+    fontSize: 13,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    marginBottom: 4,
   },
   streaksGrid: {
     flexDirection: 'row',
@@ -646,61 +782,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
-  },
-  recommendationsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  recommendationText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#1F2937',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  recommendationActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  recommendationButton: {
-    backgroundColor: '#8B5CF6',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    flex: 1,
-    marginRight: 8,
-  },
-  recommendationButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-    textAlign: 'center',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    flex: 1,
-    marginLeft: 8,
-  },
-  darkSecondaryButton: {
-    borderColor: '#4B5563',
-  },
-  secondaryButtonText: {
-    color: '#6B7280',
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-    textAlign: 'center',
-  },
-  darkSecondaryButtonText: {
-    color: '#9CA3AF',
   },
 });

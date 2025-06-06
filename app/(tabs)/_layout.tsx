@@ -1,5 +1,5 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Chrome as Home, BookOpen, Flower, ChartBar as BarChart3, User } from 'lucide-react-native';
+import { Chrome as Home, BookOpen, Flower, ChartBar as BarChart3, User, Crown } from 'lucide-react-native';
 import { StyleSheet, Platform } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -61,6 +61,15 @@ export default function TabLayout() {
           title: 'Analytics',
           tabBarIcon: ({ size, color }) => (
             <BarChart3 size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="premium"
+        options={{
+          title: 'Premium',
+          tabBarIcon: ({ size, color }) => (
+            <Crown size={size} color={color} />
           ),
         }}
       />

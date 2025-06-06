@@ -48,6 +48,30 @@ export interface WellnessActivity {
   created_at: string;
 }
 
+export interface UserSubscription {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  status: 'active' | 'cancelled' | 'expired' | 'trial' | 'past_due';
+  current_period_start: string;
+  current_period_end: string;
+  trial_end?: string;
+  stripe_subscription_id?: string;
+  stripe_customer_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PremiumFeature {
+  id: string;
+  feature_key: string;
+  name: string;
+  description: string;
+  category: string;
+  enabled: boolean;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -75,6 +99,16 @@ export interface Database {
         Row: WellnessActivity;
         Insert: Omit<WellnessActivity, 'id' | 'created_at'>;
         Update: Partial<Omit<WellnessActivity, 'id' | 'user_id' | 'created_at'>>;
+      };
+      user_subscriptions: {
+        Row: UserSubscription;
+        Insert: Omit<UserSubscription, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<UserSubscription, 'id' | 'user_id' | 'created_at'>>;
+      };
+      premium_features: {
+        Row: PremiumFeature;
+        Insert: Omit<PremiumFeature, 'id' | 'created_at'>;
+        Update: Partial<Omit<PremiumFeature, 'id' | 'created_at'>>;
       };
     };
   };

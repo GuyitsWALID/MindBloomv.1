@@ -40,6 +40,67 @@ export const userService = {
   }
 };
 
+// Subscription operations
+export const subscriptionService = {
+  async getUserSubscription(userId: string) {
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
+    return data;
+  },
+
+  async createSubscription(subscription: Tables['user_subscriptions']['Insert']) {
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .insert(subscription)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async updateSubscription(id: string, updates: Tables['user_subscriptions']['Update']) {
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async cancelSubscription(id: string) {
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async getPremiumFeatures() {
+    const { data, error } = await supabase
+      .from('premium_features')
+      .select('*')
+      .eq('enabled', true)
+      .order('category');
+    
+    if (error) throw error;
+    return data;
+  }
+};
+
 // Mood entries operations
 export const moodService = {
   async createMoodEntry(entry: Tables['mood_entries']['Insert']) {
@@ -191,6 +252,17 @@ export const journalService = {
       averageWordsPerDay,
       streak
     };
+  },
+
+  async exportJournalData(userId: string) {
+    const { data, error } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    
+    if (error) throw error;
+    return data;
   }
 };
 
@@ -453,5 +525,160 @@ export const analyticsService = {
     }
     
     return dailyData;
+  },
+
+  async getAdvancedAnalytics(userId: string) {
+    // Premium feature - advanced analytics
+    const [moodData, activities, journalEntries] = await Promise.all([
+      moodService.getMoodEntriesForPeriod(userId, 
+        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        new Date().toISOString()
+      ),
+      wellnessService.getActivitiesForPeriod(userId,
+        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        new Date().toISOString()
+      ),
+      journalService.getJournalEntries(userId, 30)
+    ]);
+
+    // Advanced pattern analysis
+    const moodPatterns = analyzeMoodPatterns(moodData);
+    const activityCorrelations = analyzeActivityCorrelations(activities, moodData);
+    const journalInsights = analyzeJournalSentiment(journalEntries);
+
+    return {
+      moodPatterns,
+      activityCorrelations,
+      journalInsights,
+      recommendations: generatePersonalizedRecommendations(moodData, activities, journalEntries)
+    };
   }
 };
+
+// Helper functions for advanced analytics
+function analyzeMoodPatterns(moodData: any[]) {
+  // Analyze mood patterns by day of week, time trends, etc.
+  const dayOfWeekPatterns = moodData.reduce((acc, entry) => {
+    const day = new Date(entry.created_at).getDay();
+    acc[day] = acc[day] || [];
+    acc[day].push(entry.mood);
+    return acc;
+  }, {} as Record<number, string[]>);
+
+  return {
+    bestDays: Object.entries(dayOfWeekPatterns)
+      .map(([day, moods]) => ({
+        day: parseInt(day),
+        averageMood: moods.length > 0 ? moods.reduce((sum, mood) => sum + getMoodValue(mood), 0) / moods.length : 0
+      }))
+      .sort((a, b) => b.averageMood - a.averageMood),
+    trends: calculateMoodTrends(moodData)
+  };
+}
+
+function analyzeActivityCorrelations(activities: any[], moodData: any[]) {
+  // Analyze which activities correlate with better moods
+  const correlations = activities.reduce((acc, activity) => {
+    const activityDate = new Date(activity.created_at).toDateString();
+    const sameDayMoods = moodData.filter(mood => 
+      new Date(mood.created_at).toDateString() === activityDate
+    );
+    
+    if (sameDayMoods.length > 0) {
+      const avgMood = sameDayMoods.reduce((sum, mood) => sum + getMoodValue(mood.mood), 0) / sameDayMoods.length;
+      acc[activity.activity_type] = acc[activity.activity_type] || [];
+      acc[activity.activity_type].push(avgMood);
+    }
+    
+    return acc;
+  }, {} as Record<string, number[]>);
+
+  return Object.entries(correlations).map(([activity, moods]) => ({
+    activity,
+    averageImpact: moods.reduce((sum, mood) => sum + mood, 0) / moods.length,
+    frequency: moods.length
+  })).sort((a, b) => b.averageImpact - a.averageImpact);
+}
+
+function analyzeJournalSentiment(journalEntries: any[]) {
+  // Simple sentiment analysis based on keywords
+  const positiveWords = ['happy', 'grateful', 'excited', 'joy', 'love', 'amazing', 'wonderful', 'great'];
+  const negativeWords = ['sad', 'angry', 'frustrated', 'tired', 'stressed', 'worried', 'anxious'];
+
+  return journalEntries.map(entry => {
+    const content = entry.content.toLowerCase();
+    const positiveCount = positiveWords.filter(word => content.includes(word)).length;
+    const negativeCount = negativeWords.filter(word => content.includes(word)).length;
+    
+    return {
+      id: entry.id,
+      date: entry.created_at,
+      sentiment: positiveCount > negativeCount ? 'positive' : 
+                 negativeCount > positiveCount ? 'negative' : 'neutral',
+      score: positiveCount - negativeCount
+    };
+  });
+}
+
+function generatePersonalizedRecommendations(moodData: any[], activities: any[], journalEntries: any[]) {
+  const recommendations = [];
+  
+  // Analyze recent mood trends
+  const recentMoods = moodData.slice(0, 7);
+  const avgRecentMood = recentMoods.reduce((sum, mood) => sum + getMoodValue(mood.mood), 0) / recentMoods.length;
+  
+  if (avgRecentMood < 6) {
+    recommendations.push({
+      type: 'mood_boost',
+      title: 'Focus on Mood Boosting Activities',
+      description: 'Your recent mood scores suggest you could benefit from more uplifting activities.',
+      actions: ['Try a 10-minute gratitude practice', 'Schedule a nature walk', 'Connect with a friend']
+    });
+  }
+  
+  // Analyze activity patterns
+  const activityCounts = activities.reduce((acc, activity) => {
+    acc[activity.activity_type] = (acc[activity.activity_type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  if ((activityCounts.meditation || 0) < 3) {
+    recommendations.push({
+      type: 'meditation',
+      title: 'Increase Meditation Practice',
+      description: 'Regular meditation can significantly improve mood and reduce stress.',
+      actions: ['Start with 5-minute daily sessions', 'Try guided meditations', 'Set a consistent time']
+    });
+  }
+  
+  return recommendations;
+}
+
+function getMoodValue(mood: string): number {
+  const moodValues: Record<string, number> = {
+    'happy': 9,
+    'calm': 8,
+    'neutral': 6,
+    'anxious': 4,
+    'sad': 3,
+    'tired': 5
+  };
+  return moodValues[mood] || 6;
+}
+
+function calculateMoodTrends(moodData: any[]) {
+  if (moodData.length < 2) return { direction: 'stable', change: 0 };
+  
+  const recent = moodData.slice(0, Math.ceil(moodData.length / 2));
+  const older = moodData.slice(Math.ceil(moodData.length / 2));
+  
+  const recentAvg = recent.reduce((sum, mood) => sum + getMoodValue(mood.mood), 0) / recent.length;
+  const olderAvg = older.reduce((sum, mood) => sum + getMoodValue(mood.mood), 0) / older.length;
+  
+  const change = recentAvg - olderAvg;
+  
+  return {
+    direction: change > 0.5 ? 'improving' : change < -0.5 ? 'declining' : 'stable',
+    change: Math.round(change * 10) / 10
+  };
+}
