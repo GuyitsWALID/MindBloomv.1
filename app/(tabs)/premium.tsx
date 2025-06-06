@@ -2,21 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { 
-  Crown, 
-  Sparkles, 
-  Check, 
-  Star, 
-  Brain, 
-  BarChart3, 
-  Download, 
-  Palette,
-  Heart,
-  Shield,
-  Users,
-  BookOpen,
-  Zap
-} from 'lucide-react-native';
+import { Crown, Sparkles, Check, Star, Brain, ChartBar as BarChart3, Download, Palette, Heart, Shield, Users, BookOpen, Zap } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSubscription, SUBSCRIPTION_PLANS } from '@/contexts/SubscriptionContext';
 import { PremiumFeature } from '@/types/subscription';
