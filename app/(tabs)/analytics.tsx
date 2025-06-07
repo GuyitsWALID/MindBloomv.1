@@ -5,9 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ChartBar as BarChart3, TrendingUp, Calendar, Brain, Heart, Target, Zap, Award, Crown, Star, Clock } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useSubscription } from '@/contexts/SubscriptionContext';
+import { supabase } from '@/lib/supabase';
 import { analyticsService, wellnessService } from '@/lib/database';
-import { PremiumGate } from '@/components/PremiumGate';
 
 type TimeRange = 'week' | 'month' | 'year';
 
@@ -16,25 +15,35 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function AnalyticsScreen() {
   const { user } = useAuth();
   const { isDark } = useTheme();
-  const { isPremium, checkFeatureAccess } = useSubscription();
   const [selectedRange, setSelectedRange] = useState<TimeRange>('week');
   const [moodData, setMoodData] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [insights, setInsights] = useState<any[]>([]);
   const [streaks, setStreaks] = useState<any>({});
-  const [advancedAnalytics, setAdvancedAnalytics] = useState<any>(null);
-  const [moodPrediction, setMoodPrediction] = useState<any>(null);
-  const [wellnessScore, setWellnessScore] = useState<number>(0);
+  const [isPremium, setIsPremium] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const hasAdvancedAnalytics = isPremium && checkFeatureAccess('advanced_analytics');
-  const hasMoodPrediction = isPremium && checkFeatureAccess('mood_prediction');
 
   useEffect(() => {
     if (user) {
       loadAnalyticsData();
+      checkPremiumStatus();
     }
   }, [user, selectedRange]);
+
+  const checkPremiumStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data } = await supabase
+        .from('stripe_user_subscriptions')
+        .select('subscription_status')
+        .maybeSingle();
+      
+      setIsPremium(data?.subscription_status === 'active' || data?.subscription_status === 'trialing');
+    } catch (error) {
+      console.error('Error checking premium status:', error);
+    }
+  };
 
   const loadAnalyticsData = async () => {
     if (!user) return;
@@ -103,18 +112,6 @@ export default function AnalyticsScreen() {
       ];
       
       setInsights(generatedInsights);
-
-      // Load premium features
-      if (hasAdvancedAnalytics) {
-        const advanced = await analyticsService.getAdvancedAnalytics(user.id);
-        setAdvancedAnalytics(advanced);
-        setWellnessScore(advanced.wellnessScore || 0);
-      }
-
-      if (hasMoodPrediction) {
-        const prediction = await analyticsService.getMoodPrediction(user.id);
-        setMoodPrediction(prediction);
-      }
       
     } catch (error) {
       console.error('Error loading analytics data:', error);
@@ -131,21 +128,6 @@ export default function AnalyticsScreen() {
     if (mood >= 8) return '#10B981';
     if (mood >= 6) return '#F59E0B';
     return '#EF4444';
-  };
-
-  const getWellnessScoreColor = (score: number) => {
-    if (score >= 80) return '#10B981';
-    if (score >= 60) return '#F59E0B';
-    if (score >= 40) return '#EF4444';
-    return '#9CA3AF';
-  };
-
-  const getPredictionColor = (prediction: string) => {
-    switch (prediction) {
-      case 'positive': return '#10B981';
-      case 'challenging': return '#EF4444';
-      default: return '#6B7280';
-    }
   };
 
   if (loading) {
@@ -177,83 +159,19 @@ export default function AnalyticsScreen() {
             )}
           </View>
 
-          {/* Wellness Score - Premium Feature */}
-          {hasAdvancedAnalytics ? (
-            <View style={[styles.scoreCard, isDark && styles.darkCard]}>
-              <View style={styles.scoreHeader}>
-                <Star size={24} color="#F59E0B" />
-                <Text style={[styles.scoreTitle, isDark && styles.darkText]}>Wellness Score</Text>
-              </View>
-              <View style={styles.scoreContainer}>
-                <Text style={[styles.scoreValue, { color: getWellnessScoreColor(wellnessScore) }]}>
-                  {wellnessScore}
+          {/* Premium Features Notice */}
+          {!isPremium && (
+            <View style={[styles.premiumNotice, isDark && styles.darkCard]}>
+              <Crown size={24} color="#F59E0B" />
+              <View style={styles.premiumNoticeContent}>
+                <Text style={[styles.premiumNoticeTitle, isDark && styles.darkText]}>
+                  Unlock Advanced Analytics
                 </Text>
-                <Text style={[styles.scoreLabel, isDark && styles.darkSubtitle]}>out of 100</Text>
-              </View>
-              <View style={styles.scoreBar}>
-                <View 
-                  style={[
-                    styles.scoreFill, 
-                    { 
-                      width: `${wellnessScore}%`,
-                      backgroundColor: getWellnessScoreColor(wellnessScore)
-                    }
-                  ]} 
-                />
-              </View>
-              <Text style={[styles.scoreDescription, isDark && styles.darkSubtitle]}>
-                {wellnessScore >= 80 ? 'Excellent wellness habits!' : 
-                 wellnessScore >= 60 ? 'Good progress, keep it up!' :
-                 wellnessScore >= 40 ? 'Room for improvement' : 'Focus on building consistent habits'}
-              </Text>
-            </View>
-          ) : (
-            <PremiumGate
-              feature="Wellness Score"
-              description="Get a comprehensive wellness score based on your mood, activities, and journal entries."
-              showUpgrade={false}
-            />
-          )}
-
-          {/* Mood Prediction - Premium Feature */}
-          {hasMoodPrediction && moodPrediction ? (
-            <View style={[styles.predictionCard, isDark && styles.darkCard]}>
-              <View style={styles.predictionHeader}>
-                <Brain size={24} color="#8B5CF6" />
-                <Text style={[styles.predictionTitle, isDark && styles.darkText]}>AI Mood Prediction</Text>
-                <Clock size={16} color={isDark ? '#9CA3AF' : '#6B7280'} />
-              </View>
-              <View style={styles.predictionContent}>
-                <View style={styles.predictionMain}>
-                  <Text style={[styles.predictionLabel, isDark && styles.darkSubtitle]}>Next 24-48 hours:</Text>
-                  <Text style={[
-                    styles.predictionValue, 
-                    { color: getPredictionColor(moodPrediction.prediction) }
-                  ]}>
-                    {moodPrediction.prediction === 'positive' ? 'Positive Mood Expected' :
-                     moodPrediction.prediction === 'challenging' ? 'Challenging Period Ahead' :
-                     'Stable Mood Expected'}
-                  </Text>
-                  <Text style={[styles.confidenceText, isDark && styles.darkSubtitle]}>
-                    Confidence: {Math.round(moodPrediction.confidence * 100)}%
-                  </Text>
-                </View>
-                <View style={styles.predictionFactors}>
-                  <Text style={[styles.factorsTitle, isDark && styles.darkText]}>Key Factors:</Text>
-                  {moodPrediction.factors.slice(0, 2).map((factor: string, index: number) => (
-                    <Text key={index} style={[styles.factorItem, isDark && styles.darkSubtitle]}>
-                      • {factor}
-                    </Text>
-                  ))}
-                </View>
+                <Text style={[styles.premiumNoticeText, isDark && styles.darkSubtitle]}>
+                  Get AI-powered insights, mood predictions, and detailed wellness patterns with Premium.
+                </Text>
               </View>
             </View>
-          ) : !isPremium && (
-            <PremiumGate
-              feature="AI Mood Prediction"
-              description="Get AI-powered predictions about your mood trends to help you prepare for challenging days."
-              showUpgrade={false}
-            />
           )}
 
           {/* Time Range Selector */}
@@ -325,85 +243,6 @@ export default function AnalyticsScreen() {
               </View>
             </View>
           </View>
-
-          {/* Advanced Analytics - Premium Feature */}
-          {hasAdvancedAnalytics && advancedAnalytics ? (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Advanced Insights</Text>
-              
-              {/* Mood Patterns */}
-              <View style={[styles.advancedCard, isDark && styles.darkCard]}>
-                <Text style={[styles.advancedTitle, isDark && styles.darkText]}>Mood Patterns</Text>
-                <Text style={[styles.advancedDescription, isDark && styles.darkSubtitle]}>
-                  Your mood is trending {advancedAnalytics.moodPatterns.trends.direction} with a 
-                  {advancedAnalytics.moodPatterns.trends.change > 0 ? ' positive' : ' negative'} change 
-                  of {Math.abs(advancedAnalytics.moodPatterns.trends.change)} points.
-                </Text>
-                <Text style={[styles.advancedDescription, isDark && styles.darkSubtitle]}>
-                  Volatility: {advancedAnalytics.moodPatterns.volatility?.toFixed(1) || 'Low'} 
-                  {(advancedAnalytics.moodPatterns.volatility || 0) > 2 ? ' (High variability)' : ' (Stable)'}
-                </Text>
-              </View>
-
-              {/* Activity Correlations */}
-              <View style={[styles.advancedCard, isDark && styles.darkCard]}>
-                <Text style={[styles.advancedTitle, isDark && styles.darkText]}>Activity Impact</Text>
-                {advancedAnalytics.activityCorrelations.slice(0, 3).map((correlation: any, index: number) => (
-                  <View key={index} style={styles.correlationRow}>
-                    <Text style={[styles.correlationActivity, isDark && styles.darkText]}>
-                      {correlation.activity.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                    </Text>
-                    <View style={styles.correlationStats}>
-                      <Text style={[styles.correlationImpact, { color: correlation.averageImpact > 6 ? '#10B981' : '#F59E0B' }]}>
-                        {correlation.averageImpact.toFixed(1)}/10
-                      </Text>
-                      <Text style={[styles.correlationConsistency, isDark && styles.darkSubtitle]}>
-                        {Math.round(correlation.consistency * 100)}% consistent
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-
-              {/* Personalized Recommendations */}
-              <View style={[styles.advancedCard, isDark && styles.darkCard]}>
-                <Text style={[styles.advancedTitle, isDark && styles.darkText]}>AI Recommendations</Text>
-                {advancedAnalytics.recommendations.map((rec: any, index: number) => (
-                  <View key={index} style={styles.recommendationItem}>
-                    <View style={styles.recommendationHeader}>
-                      <Text style={[styles.recommendationTitle, isDark && styles.darkText]}>{rec.title}</Text>
-                      <View style={[
-                        styles.priorityBadge,
-                        { backgroundColor: rec.priority === 'high' ? '#EF4444' : rec.priority === 'medium' ? '#F59E0B' : '#6B7280' }
-                      ]}>
-                        <Text style={styles.priorityText}>{rec.priority}</Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.recommendationDescription, isDark && styles.darkSubtitle]}>
-                      {rec.description}
-                    </Text>
-                    {rec.expectedImpact && (
-                      <Text style={[styles.expectedImpact, isDark && styles.darkSubtitle]}>
-                        Expected impact: {rec.expectedImpact}
-                      </Text>
-                    )}
-                    <View style={styles.recommendationActions}>
-                      {rec.actions.slice(0, 2).map((action: string, actionIndex: number) => (
-                        <Text key={actionIndex} style={[styles.recommendationAction, isDark && styles.darkSubtitle]}>
-                          • {action}
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : !isPremium && (
-            <PremiumGate
-              feature="Advanced Analytics"
-              description="Get detailed mood patterns, activity correlations, and personalized AI recommendations to optimize your wellness journey."
-            />
-          )}
 
           {/* Streaks Section */}
           <View style={styles.section}>
@@ -576,12 +415,14 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
     marginLeft: 4,
   },
-  scoreCard: {
+  premiumNotice: {
     backgroundColor: '#FFFFFF',
     margin: 24,
     marginTop: 0,
-    padding: 24,
+    padding: 20,
     borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -591,108 +432,21 @@ const styles = StyleSheet.create({
   darkCard: {
     backgroundColor: '#374151',
   },
-  scoreHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  scoreTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    marginLeft: 12,
-  },
-  scoreContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  scoreValue: {
-    fontSize: 48,
-    fontFamily: 'Inter-Bold',
-  },
-  scoreLabel: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#6B7280',
-  },
-  scoreBar: {
-    height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    marginBottom: 12,
-  },
-  scoreFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  scoreDescription: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  predictionCard: {
-    backgroundColor: '#FFFFFF',
-    margin: 24,
-    marginTop: 0,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  predictionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  predictionTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    marginLeft: 12,
-    flex: 1,
-  },
-  predictionContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  predictionMain: {
-    flex: 1,
-  },
-  predictionLabel: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  predictionValue: {
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
-    marginBottom: 4,
-  },
-  confidenceText: {
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-  },
-  predictionFactors: {
+  premiumNoticeContent: {
     flex: 1,
     marginLeft: 16,
   },
-  factorsTitle: {
-    fontSize: 14,
+  premiumNoticeTitle: {
+    fontSize: 16,
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  factorItem: {
-    fontSize: 12,
+  premiumNoticeText: {
+    fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
-    marginBottom: 4,
+    lineHeight: 20,
   },
   timeRangeContainer: {
     flexDirection: 'row',
@@ -816,107 +570,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
     marginBottom: 16,
-  },
-  advancedCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  advancedTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  advancedDescription: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  correlationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  correlationActivity: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#1F2937',
-    flex: 1,
-  },
-  correlationStats: {
-    alignItems: 'flex-end',
-  },
-  correlationImpact: {
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-  },
-  correlationConsistency: {
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-  },
-  recommendationItem: {
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  recommendationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  recommendationTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    flex: 1,
-  },
-  priorityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  priorityText: {
-    fontSize: 10,
-    fontFamily: 'Inter-Bold',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
-  },
-  recommendationDescription: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  expectedImpact: {
-    fontSize: 13,
-    fontFamily: 'Inter-Medium',
-    color: '#10B981',
-    marginBottom: 8,
-  },
-  recommendationActions: {
-    marginLeft: 12,
-  },
-  recommendationAction: {
-    fontSize: 13,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    marginBottom: 4,
   },
   streaksGrid: {
     flexDirection: 'row',

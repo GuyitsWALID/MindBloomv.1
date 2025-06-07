@@ -1,108 +1,121 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Sparkles, Check, Star, Brain, ChartBar as BarChart3, Download, Palette, Heart, Shield, Users, BookOpen, Zap, Clock, Target, TrendingUp } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useSubscription, SUBSCRIPTION_PLANS } from '@/contexts/SubscriptionContext';
-import { usePayments } from '@/contexts/PaymentContext';
-import { PaymentPlatformInfo } from '@/components/PaymentPlatformInfo';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { STRIPE_PRODUCTS, getProductById } from '@/src/stripe-config';
 
-const PREMIUM_FEATURES = [
-  {
-    id: 'unlimited_ai',
-    name: 'AI Wellness Coach',
-    description: 'Get unlimited personalized insights and coaching from our advanced AI',
-    icon: Brain,
-    category: 'ai'
-  },
-  {
-    id: 'advanced_analytics',
-    name: 'Advanced Analytics',
-    description: 'Deep insights into your wellness patterns with predictive analytics',
-    icon: BarChart3,
-    category: 'analytics'
-  },
-  {
-    id: 'custom_meditations',
-    name: 'Custom Meditation Library',
-    description: 'Access 200+ guided meditations and create personalized sessions',
-    icon: Heart,
-    category: 'content'
-  },
-  {
-    id: 'data_export',
-    name: 'Export & Backup',
-    description: 'Download your complete wellness data and create backups',
-    icon: Download,
-    category: 'export'
-  },
-  {
-    id: 'premium_themes',
-    name: 'Premium Themes',
-    description: 'Unlock beautiful themes and complete customization options',
-    icon: Palette,
-    category: 'customization'
-  },
-  {
-    id: 'priority_support',
-    name: 'Priority Support',
-    description: '24/7 priority support with wellness experts',
-    icon: Shield,
-    category: 'content'
-  },
-  {
-    id: 'family_sharing',
-    name: 'Family Sharing',
-    description: 'Share premium features with up to 4 family members',
-    icon: Users,
-    category: 'content'
-  },
-  {
-    id: 'content_library',
-    name: 'Exclusive Content',
-    description: 'Access premium courses, challenges, and expert content',
-    icon: BookOpen,
-    category: 'content'
-  },
-  {
-    id: 'habit_tracking',
-    name: 'Advanced Habit Tracking',
-    description: 'Track unlimited habits with smart reminders and insights',
-    icon: Target,
-    category: 'coaching'
-  },
-  {
-    id: 'mood_prediction',
-    name: 'Mood Prediction',
-    description: 'AI-powered mood forecasting to prevent difficult days',
-    icon: TrendingUp,
-    category: 'ai'
-  }
-];
+interface SubscriptionData {
+  subscription_status: string;
+  price_id: string;
+  current_period_end: number;
+  cancel_at_period_end: boolean;
+}
 
 export default function PremiumScreen() {
   const { isDark } = useTheme();
-  const { isPremium, currentPlan, purchasePlan, loading, trialDaysLeft, subscription } = useSubscription();
-  const { openManageSubscription } = usePayments();
-  const [selectedPlan, setSelectedPlan] = useState(SUBSCRIPTION_PLANS[1].id); // Default to yearly
+  const { user } = useAuth();
+  const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
 
-  const handlePurchase = async () => {
-    setPurchasing(true);
+  useEffect(() => {
+    if (user) {
+      loadSubscription();
+    }
+  }, [user]);
+
+  const loadSubscription = async () => {
+    if (!user) return;
+    
     try {
-      const result = await purchasePlan(selectedPlan);
-      if (!result.success && result.error) {
-        Alert.alert('Purchase Failed', result.error);
+      const { data, error } = await supabase
+        .from('stripe_user_subscriptions')
+        .select('subscription_status, price_id, current_period_end, cancel_at_period_end')
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error loading subscription:', error);
+      } else {
+        setSubscription(data);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to process purchase. Please try again.');
+      console.error('Error loading subscription:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePurchase = async () => {
+    if (!user) {
+      Alert.alert('Error', 'Please sign in to purchase premium');
+      return;
+    }
+
+    setPurchasing(true);
+    
+    try {
+      const premiumProduct = getProductById('premium');
+      if (!premiumProduct) {
+        throw new Error('Premium product not found');
+      }
+
+      const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+        body: {
+          price_id: premiumProduct.priceId,
+          mode: premiumProduct.mode,
+          success_url: `${window.location.origin}/premium/success`,
+          cancel_url: `${window.location.origin}/premium`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error) {
+      console.error('Purchase error:', error);
+      Alert.alert(
+        'Purchase Failed',
+        error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+      );
     } finally {
       setPurchasing(false);
     }
   };
 
-  if (isPremium) {
+  const openManageSubscription = () => {
+    Alert.alert(
+      'Manage Subscription',
+      'To manage your subscription, please contact our support team or visit the Stripe customer portal.',
+      [
+        { text: 'OK', style: 'default' }
+      ]
+    );
+  };
+
+  const isSubscribed = subscription?.subscription_status === 'active' || subscription?.subscription_status === 'trialing';
+  const premiumProduct = getProductById('premium');
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, isDark && styles.darkContainer]}>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, isDark && styles.darkText]}>Loading subscription...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isSubscribed) {
     return (
       <SafeAreaView style={[styles.container, isDark && styles.darkContainer]}>
         <LinearGradient 
@@ -116,54 +129,44 @@ export default function PremiumScreen() {
               <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>
                 Enjoying all the exclusive features of Mindbloom Premium
               </Text>
-              
-              {subscription?.status === 'trial' && trialDaysLeft > 0 && (
-                <View style={[styles.trialBadge, isDark && styles.darkTrialBadge]}>
-                  <Clock size={16} color="#F59E0B" />
-                  <Text style={[styles.trialText, isDark && styles.darkTrialText]}>
-                    {trialDaysLeft} days left in trial
-                  </Text>
-                </View>
-              )}
             </View>
 
             <View style={[styles.currentPlanCard, isDark && styles.darkCard]}>
               <View style={styles.planHeader}>
                 <Text style={[styles.planName, isDark && styles.darkText]}>
-                  {currentPlan?.name || 'Premium Plan'}
+                  {premiumProduct?.name || 'Premium Plan'}
                 </Text>
                 <View style={styles.priceContainer}>
-                  <Text style={styles.price}>${currentPlan?.price}</Text>
+                  <Text style={styles.price}>${premiumProduct?.price || 7.00}</Text>
                   <Text style={[styles.period, isDark && styles.darkSubtitle]}>
-                    /{currentPlan?.period}
+                    /{premiumProduct?.interval || 'month'}
                   </Text>
                 </View>
               </View>
               <Text style={[styles.planStatus, isDark && styles.darkSubtitle]}>
-                {subscription?.status === 'trial' ? 'Free Trial' : 'Active'} • 
-                {subscription?.status === 'trial' ? ` ${trialDaysLeft} days left` : ' Renews automatically'}
+                {subscription?.subscription_status === 'trialing' ? 'Free Trial' : 'Active'} • 
+                {subscription?.cancel_at_period_end ? ' Cancels at period end' : ' Renews automatically'}
               </Text>
-              <Text style={[styles.platformInfo, isDark && styles.darkSubtitle]}>
-                Platform: {subscription?.platform || 'Unknown'}
-              </Text>
+              {subscription?.current_period_end && (
+                <Text style={[styles.platformInfo, isDark && styles.darkSubtitle]}>
+                  Next billing: {new Date(subscription.current_period_end * 1000).toLocaleDateString()}
+                </Text>
+              )}
             </View>
 
             <View style={styles.featuresSection}>
               <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Your Premium Features</Text>
               <View style={styles.featuresGrid}>
-                {PREMIUM_FEATURES.map((feature) => (
-                  <View key={feature.id} style={[styles.featureCard, isDark && styles.darkCard]}>
+                {premiumProduct?.features?.map((feature, index) => (
+                  <View key={index} style={[styles.featureCard, isDark && styles.darkCard]}>
                     <View style={styles.featureIcon}>
-                      <feature.icon size={24} color="#F59E0B" />
+                      <Check size={24} color="#10B981" />
                     </View>
                     <Text style={[styles.featureName, isDark && styles.darkText]}>
-                      {feature.name}
-                    </Text>
-                    <Text style={[styles.featureDescription, isDark && styles.darkSubtitle]}>
-                      {feature.description}
+                      {feature}
                     </Text>
                   </View>
-                ))}
+                )) || []}
               </View>
             </View>
 
@@ -172,51 +175,16 @@ export default function PremiumScreen() {
                 Manage Subscription
               </Text>
               <Text style={[styles.managementText, isDark && styles.darkSubtitle]}>
-                {Platform.OS === 'web' 
-                  ? 'Manage your subscription through Stripe Customer Portal or contact support.'
-                  : 'Manage your subscription through your device\'s App Store settings.'
-                }
+                Manage your subscription, update payment methods, or view billing history.
               </Text>
               <TouchableOpacity 
                 style={[styles.manageButton, isDark && styles.darkManageButton]}
                 onPress={openManageSubscription}
               >
                 <Text style={[styles.manageButtonText, isDark && styles.darkManageButtonText]}>
-                  {Platform.OS === 'web' ? 'Open Stripe Portal' : 'Open App Store'}
+                  Manage Subscription
                 </Text>
               </TouchableOpacity>
-            </View>
-
-            <PaymentPlatformInfo isDark={isDark} />
-
-            <View style={[styles.statsCard, isDark && styles.darkCard]}>
-              <Text style={[styles.statsTitle, isDark && styles.darkText]}>Premium Benefits</Text>
-              <View style={styles.benefitsList}>
-                <View style={styles.benefitItem}>
-                  <Check size={16} color="#10B981" />
-                  <Text style={[styles.benefitText, isDark && styles.darkSubtitle]}>
-                    Unlimited AI insights and coaching
-                  </Text>
-                </View>
-                <View style={styles.benefitItem}>
-                  <Check size={16} color="#10B981" />
-                  <Text style={[styles.benefitText, isDark && styles.darkSubtitle]}>
-                    Advanced analytics and predictions
-                  </Text>
-                </View>
-                <View style={styles.benefitItem}>
-                  <Check size={16} color="#10B981" />
-                  <Text style={[styles.benefitText, isDark && styles.darkSubtitle]}>
-                    200+ premium meditations
-                  </Text>
-                </View>
-                <View style={styles.benefitItem}>
-                  <Check size={16} color="#10B981" />
-                  <Text style={[styles.benefitText, isDark && styles.darkSubtitle]}>
-                    Priority support & expert guidance
-                  </Text>
-                </View>
-              </View>
             </View>
           </ScrollView>
         </LinearGradient>
@@ -264,92 +232,51 @@ export default function PremiumScreen() {
             </View>
           </View>
 
-          {/* Pricing Plans */}
-          <View style={styles.plansSection}>
-            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Choose Your Plan</Text>
-            <Text style={[styles.planSubtitle, isDark && styles.darkSubtitle]}>
-              Start with a 7-day free trial • Cancel anytime
-            </Text>
-            
-            {SUBSCRIPTION_PLANS.map((plan) => (
-              <TouchableOpacity
-                key={plan.id}
-                style={[
-                  styles.planCard,
-                  isDark && styles.darkCard,
-                  selectedPlan === plan.id && styles.selectedPlan,
-                  plan.popular && styles.popularPlan
-                ]}
-                onPress={() => setSelectedPlan(plan.id)}
-              >
-                {plan.popular && (
-                  <View style={styles.popularBadge}>
-                    <Star size={16} color="#FFFFFF" />
-                    <Text style={styles.popularText}>Most Popular</Text>
-                  </View>
-                )}
+          {/* Premium Plan */}
+          {premiumProduct && (
+            <View style={styles.plansSection}>
+              <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Premium Plan</Text>
+              
+              <View style={[styles.planCard, isDark && styles.darkCard, styles.popularPlan]}>
+                <View style={styles.popularBadge}>
+                  <Star size={16} color="#FFFFFF" />
+                  <Text style={styles.popularText}>Most Popular</Text>
+                </View>
                 
                 <View style={styles.planContent}>
                   <View style={styles.planInfo}>
-                    <Text style={[styles.planName, isDark && styles.darkText]}>{plan.name}</Text>
-                    {plan.savings && (
-                      <Text style={styles.savingsText}>{plan.savings}</Text>
-                    )}
+                    <Text style={[styles.planName, isDark && styles.darkText]}>{premiumProduct.name}</Text>
+                    <Text style={[styles.planDescription, isDark && styles.darkSubtitle]}>
+                      {premiumProduct.description}
+                    </Text>
                   </View>
                   
                   <View style={styles.priceContainer}>
-                    <Text style={styles.price}>${plan.price}</Text>
-                    <Text style={[styles.period, isDark && styles.darkSubtitle]}>/{plan.period}</Text>
+                    <Text style={styles.price}>${premiumProduct.price}</Text>
+                    <Text style={[styles.period, isDark && styles.darkSubtitle]}>
+                      /{premiumProduct.interval}
+                    </Text>
                   </View>
                 </View>
 
                 <View style={styles.planFeatures}>
-                  {plan.features.slice(0, 4).map((feature, index) => (
+                  {premiumProduct.features?.slice(0, 6).map((feature, index) => (
                     <View key={index} style={styles.featureRow}>
                       <Check size={16} color="#10B981" />
                       <Text style={[styles.featureText, isDark && styles.darkSubtitle]}>
                         {feature}
                       </Text>
                     </View>
-                  ))}
-                  {plan.features.length > 4 && (
+                  )) || []}
+                  {(premiumProduct.features?.length || 0) > 6 && (
                     <Text style={[styles.moreFeatures, isDark && styles.darkSubtitle]}>
-                      +{plan.features.length - 4} more features
+                      +{(premiumProduct.features?.length || 0) - 6} more features
                     </Text>
                   )}
                 </View>
-
-                <View style={styles.radioContainer}>
-                  <View style={[
-                    styles.radio,
-                    selectedPlan === plan.id && styles.radioSelected
-                  ]}>
-                    {selectedPlan === plan.id && <View style={styles.radioDot} />}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Premium Features Grid */}
-          <View style={styles.featuresSection}>
-            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Premium Features</Text>
-            <View style={styles.featuresGrid}>
-              {PREMIUM_FEATURES.slice(0, 6).map((feature) => (
-                <View key={feature.id} style={[styles.featureCard, isDark && styles.darkCard]}>
-                  <View style={styles.featureIcon}>
-                    <feature.icon size={24} color="#F59E0B" />
-                  </View>
-                  <Text style={[styles.featureName, isDark && styles.darkText]}>
-                    {feature.name}
-                  </Text>
-                  <Text style={[styles.featureDescription, isDark && styles.darkSubtitle]}>
-                    {feature.description}
-                  </Text>
-                </View>
-              ))}
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Purchase Button */}
           <View style={styles.purchaseSection}>
@@ -360,23 +287,20 @@ export default function PremiumScreen() {
             >
               <Sparkles size={20} color="#FFFFFF" />
               <Text style={styles.purchaseButtonText}>
-                {purchasing ? 'Processing...' : 'Start 7-Day Free Trial'}
+                {purchasing ? 'Processing...' : 'Start Premium Subscription'}
               </Text>
             </TouchableOpacity>
 
             <Text style={[styles.disclaimer, isDark && styles.darkSubtitle]}>
-              • Free for 7 days, then ${SUBSCRIPTION_PLANS.find(p => p.id === selectedPlan)?.price}/{SUBSCRIPTION_PLANS.find(p => p.id === selectedPlan)?.period}
+              • Secure payment processing by Stripe
             </Text>
             <Text style={[styles.disclaimer, isDark && styles.darkSubtitle]}>
-              • Cancel anytime • No commitment • Secure payment
+              • Cancel anytime • No commitment
             </Text>
             <Text style={[styles.disclaimer, isDark && styles.darkSubtitle]}>
               By subscribing, you agree to our Terms of Service and Privacy Policy
             </Text>
           </View>
-
-          {/* Payment Platform Info */}
-          <PaymentPlatformInfo isDark={isDark} />
 
           {/* Social Proof */}
           <View style={[styles.testimonialsSection, isDark && styles.darkCard]}>
@@ -397,14 +321,6 @@ export default function PremiumScreen() {
                 - David L., Premium User
               </Text>
             </View>
-            <View style={styles.testimonial}>
-              <Text style={[styles.testimonialText, isDark && styles.darkText]}>
-                "Family sharing is a game-changer. My whole family now uses Mindbloom and we support each other's wellness journey."
-              </Text>
-              <Text style={[styles.testimonialAuthor, isDark && styles.darkSubtitle]}>
-                - Maria R., Premium User
-              </Text>
-            </View>
           </View>
         </ScrollView>
       </LinearGradient>
@@ -422,6 +338,16 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Medium',
+    color: '#6B7280',
   },
   header: {
     alignItems: 'center',
@@ -449,27 +375,6 @@ const styles = StyleSheet.create({
   },
   darkSubtitle: {
     color: '#9CA3AF',
-  },
-  trialBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 8,
-  },
-  darkTrialBadge: {
-    backgroundColor: '#374151',
-  },
-  trialText: {
-    fontSize: 12,
-    fontFamily: 'Inter-SemiBold',
-    color: '#F59E0B',
-    marginLeft: 4,
-  },
-  darkTrialText: {
-    color: '#FCD34D',
   },
   valueCard: {
     backgroundColor: '#FFFFFF',
@@ -515,21 +420,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Inter-Bold',
     color: '#1F2937',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  planSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    textAlign: 'center',
     marginBottom: 20,
+    textAlign: 'center',
   },
   planCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,
-    marginBottom: 16,
     borderWidth: 2,
     borderColor: '#E5E7EB',
     position: 'relative',
@@ -538,10 +435,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-  },
-  selectedPlan: {
-    borderColor: '#F59E0B',
-    backgroundColor: '#FFFBEB',
   },
   popularPlan: {
     borderColor: '#F59E0B',
@@ -564,31 +457,30 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   planContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   planInfo: {
-    flex: 1,
+    marginBottom: 12,
   },
   planName: {
     fontSize: 20,
     fontFamily: 'Inter-Bold',
     color: '#1F2937',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  savingsText: {
+  planDescription: {
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-    color: '#10B981',
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    lineHeight: 20,
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    justifyContent: 'center',
   },
   price: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: 'Inter-Bold',
     color: '#F59E0B',
   },
@@ -619,27 +511,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 4,
   },
-  radioContainer: {
-    alignItems: 'flex-end',
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioSelected: {
-    borderColor: '#F59E0B',
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#F59E0B',
-  },
   featuresSection: {
     padding: 24,
     paddingTop: 0,
@@ -665,22 +536,16 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F0FDF4',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   featureName: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
-    marginBottom: 8,
-  },
-  featureDescription: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    lineHeight: 20,
+    textAlign: 'center',
   },
   purchaseSection: {
     padding: 24,
@@ -788,38 +653,6 @@ const styles = StyleSheet.create({
   },
   darkManageButtonText: {
     color: '#F59E0B',
-  },
-  statsCard: {
-    backgroundColor: '#FFFFFF',
-    margin: 24,
-    marginTop: 0,
-    padding: 24,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  benefitsList: {
-    gap: 12,
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  benefitText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    marginLeft: 8,
-    flex: 1,
   },
   testimonialsSection: {
     backgroundColor: '#FFFFFF',

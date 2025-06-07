@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
-import { Mail, Lock, Eye, EyeOff, User, Sparkles } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, User, Sparkles, AlertCircle, CheckCircle } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignUpScreen() {
@@ -14,27 +14,29 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const { signUp } = useAuth();
 
   const validateForm = () => {
     if (!fullName || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setError('Please fill in all fields');
       return false;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      setError('Passwords do not match');
       return false;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      setError('Password must be at least 6 characters long');
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      setError('Please enter a valid email address');
       return false;
     }
 
@@ -45,16 +47,18 @@ export default function SignUpScreen() {
     if (!validateForm()) return;
 
     setLoading(true);
-    const { error } = await signUp(email, password, fullName);
+    setError('');
+    setSuccess('');
     
-    if (error) {
-      Alert.alert('Sign Up Failed', error.message);
+    const { error: signUpError } = await signUp(email, password, fullName);
+    
+    if (signUpError) {
+      setError(signUpError.message);
     } else {
-      Alert.alert(
-        'Welcome to Mindbloom! 🌱',
-        'Your account has been created successfully. You can now start your wellness journey.',
-        [{ text: 'Get Started', onPress: () => router.replace('/(tabs)') }]
-      );
+      setSuccess('Account created successfully! You can now sign in.');
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 1500);
     }
     setLoading(false);
   };
@@ -73,6 +77,22 @@ export default function SignUpScreen() {
               <Text style={styles.title}>Start your journey</Text>
               <Text style={styles.subtitle}>Create your wellness account</Text>
             </View>
+
+            {/* Error Message */}
+            {error ? (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color="#EF4444" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            {/* Success Message */}
+            {success ? (
+              <View style={styles.successContainer}>
+                <CheckCircle size={16} color="#10B981" />
+                <Text style={styles.successText}>{success}</Text>
+              </View>
+            ) : null}
 
             {/* Form */}
             <View style={styles.form}>
@@ -222,6 +242,40 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
     textAlign: 'center',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#EF4444',
+    marginLeft: 8,
+    flex: 1,
+  },
+  successContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  successText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#10B981',
+    marginLeft: 8,
+    flex: 1,
   },
   form: {
     width: '100%',

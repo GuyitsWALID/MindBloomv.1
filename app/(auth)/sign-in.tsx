@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
-import { Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, Sparkles, AlertCircle } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignInScreen() {
@@ -11,19 +11,22 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { signIn } = useAuth();
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setError('Please fill in all fields');
       return;
     }
 
     setLoading(true);
-    const { error } = await signIn(email, password);
+    setError('');
     
-    if (error) {
-      Alert.alert('Sign In Failed', error.message);
+    const { error: signInError } = await signIn(email, password);
+    
+    if (signInError) {
+      setError(signInError.message);
     } else {
       router.replace('/(tabs)');
     }
@@ -43,6 +46,14 @@ export default function SignInScreen() {
             <Text style={styles.title}>Welcome back</Text>
             <Text style={styles.subtitle}>Continue your wellness journey</Text>
           </View>
+
+          {/* Error Message */}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color="#EF4444" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
           {/* Form */}
           <View style={styles.form}>
@@ -149,6 +160,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
     textAlign: 'center',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#EF4444',
+    marginLeft: 8,
+    flex: 1,
   },
   form: {
     width: '100%',
