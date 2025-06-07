@@ -1,6 +1,6 @@
 # Mindbloom - Mental Health & Wellness App
 
-A comprehensive mental health and wellness application built with Expo Router, featuring AI-powered insights, mood tracking, journaling, and premium subscription management.
+A comprehensive mental health and wellness application built with Expo Router, featuring AI-powered insights, mood tracking, journaling, and flexible premium subscription management.
 
 ## Features
 
@@ -21,6 +21,27 @@ A comprehensive mental health and wellness application built with Expo Router, f
 - **Family Sharing**: Share with up to 4 family members
 - **Mood Prediction**: AI-powered mood forecasting
 
+## Flexible Pricing Plans
+
+### Weekly Premium - $2.99/week
+- Perfect for trying out premium features
+- 3-day free trial
+- Weekly billing flexibility
+- All core premium features
+
+### Monthly Premium - $9.99/month (Most Popular)
+- Most flexible option with monthly billing
+- 7-day free trial
+- Save 23% vs weekly billing
+- Full premium feature access
+
+### Yearly Premium - $79.99/year (Best Value)
+- Best value with significant savings
+- 14-day free trial
+- Save 33% vs monthly billing
+- Save 48% vs weekly billing
+- Exclusive yearly-only features
+
 ## Payment Integration
 
 This app includes comprehensive payment integration supporting both web and mobile platforms:
@@ -30,6 +51,7 @@ This app includes comprehensive payment integration supporting both web and mobi
 - Customer portal for subscription management
 - Webhook handling for subscription events
 - PCI DSS compliant processing
+- Support for all three pricing tiers
 
 ### Mobile Payments (RevenueCat)
 - App Store and Google Play billing integration
@@ -41,11 +63,16 @@ This app includes comprehensive payment integration supporting both web and mobi
 #### Stripe Setup (Web)
 1. Create a Stripe account at https://stripe.com
 2. Get your API keys from the Stripe Dashboard
-3. Set up your environment variables:
+3. Create products and prices for each plan:
+   - Weekly Premium: $2.99/week
+   - Monthly Premium: $9.99/month
+   - Yearly Premium: $79.99/year
+4. Set up your environment variables:
    ```
    EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
    STRIPE_SECRET_KEY=sk_test_...
    STRIPE_WEBHOOK_SECRET=whsec_...
+   STRIPE_PRICE_ID_WEEKLY=price_...
    STRIPE_PRICE_ID_MONTHLY=price_...
    STRIPE_PRICE_ID_YEARLY=price_...
    ```
@@ -53,7 +80,10 @@ This app includes comprehensive payment integration supporting both web and mobi
 #### RevenueCat Setup (Mobile)
 1. Create a RevenueCat account at https://www.revenuecat.com
 2. Set up your app in the RevenueCat dashboard
-3. Configure your products in App Store Connect and Google Play Console
+3. Configure your products in App Store Connect and Google Play Console:
+   - Weekly Premium: $2.99/week
+   - Monthly Premium: $9.99/month
+   - Yearly Premium: $79.99/year
 4. **Important**: RevenueCat requires native code and will not work in the browser preview
 5. To enable mobile purchases:
    - Export your project using `npx expo export`
@@ -72,6 +102,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID_WEEKLY=price_...
 STRIPE_PRICE_ID_MONTHLY=price_...
 STRIPE_PRICE_ID_YEARLY=price_...
 
@@ -106,6 +137,7 @@ app/
 │   ├── premium.tsx            # Premium subscription
 │   └── profile.tsx            # User profile
 ├── activities/                 # Wellness activities
+├── premium/                   # Premium success pages
 └── api/                       # API routes for payments
 
 components/                     # Reusable components
@@ -118,8 +150,30 @@ lib/                           # Utilities and services
     ├── stripe.ts             # Stripe integration
     └── revenuecat.ts         # RevenueCat integration
 
+src/                           # Configuration files
+├── stripe-config.ts          # Stripe product configuration
+
 types/                         # TypeScript type definitions
 ```
+
+## Pricing Strategy
+
+The app offers three flexible pricing tiers to accommodate different user preferences:
+
+### Pricing Breakdown
+- **Weekly**: $2.99/week ($12.96/month equivalent)
+- **Monthly**: $9.99/month (23% savings vs weekly)
+- **Yearly**: $79.99/year ($6.67/month equivalent, 33% savings vs monthly)
+
+### Savings Calculation
+- Monthly vs Weekly: Save 23%
+- Yearly vs Monthly: Save 33%
+- Yearly vs Weekly: Save 48%
+
+### Trial Periods
+- Weekly: 3-day free trial
+- Monthly: 7-day free trial
+- Yearly: 14-day free trial
 
 ## Getting Started
 
@@ -137,12 +191,17 @@ types/                         # TypeScript type definitions
    - Run the migrations in `supabase/migrations/`
    - Configure Row Level Security policies
 
-4. **Start the development server**:
+4. **Configure Stripe Products**:
+   - Create three products in Stripe Dashboard
+   - Update price IDs in `src/stripe-config.ts`
+   - Set up webhooks for subscription events
+
+5. **Start the development server**:
    ```bash
    npm run dev
    ```
 
-5. **For mobile payments**:
+6. **For mobile payments**:
    - Export the project: `npx expo export`
    - Follow RevenueCat integration guide
    - Create development build with Expo Dev Client
@@ -157,6 +216,9 @@ The app uses Supabase with the following main tables:
 - `wellness_activities` - Completed wellness activities
 - `user_subscriptions` - Premium subscription management
 - `subscription_features` - Available premium features
+- `stripe_customers` - Stripe customer mapping
+- `stripe_subscriptions` - Stripe subscription data
+- `stripe_orders` - One-time payment records
 
 ## Deployment
 

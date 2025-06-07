@@ -20,10 +20,27 @@ const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
 
 export const PAYMENT_PLANS: PaymentPlan[] = [
   {
+    id: 'mindbloom_weekly',
+    name: 'Weekly Premium',
+    price: 2.99,
+    period: 'weekly',
+    features: [
+      'Unlimited AI Insights & Coaching',
+      'Advanced Mood Analytics',
+      'Custom Meditation Library',
+      'Export Journal Data',
+      'Priority Support',
+      'Premium Themes & Customization'
+    ],
+    stripePriceId: 'price_weekly_premium',
+    revenueCatPackageId: 'mindbloom_weekly_299',
+  },
+  {
     id: 'mindbloom_monthly',
     name: 'Monthly Premium',
     price: 9.99,
     period: 'monthly',
+    popular: true,
     features: [
       'Unlimited AI Insights & Coaching',
       'Advanced Mood Analytics',
@@ -42,7 +59,6 @@ export const PAYMENT_PLANS: PaymentPlan[] = [
     name: 'Yearly Premium',
     price: 79.99,
     period: 'yearly',
-    popular: true,
     savings: 'Save 33% • Best Value',
     features: [
       'Everything in Monthly Premium',

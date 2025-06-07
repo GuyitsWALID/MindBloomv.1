@@ -6,7 +6,7 @@ export interface PaymentPlan {
   id: string;
   name: string;
   price: number;
-  period: 'monthly' | 'yearly';
+  period: 'weekly' | 'monthly' | 'yearly';
   features: string[];
   popular?: boolean;
   savings?: string;
