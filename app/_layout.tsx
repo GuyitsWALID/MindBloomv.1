@@ -29,8 +29,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
-      // Signal framework ready only after fonts are loaded and splash screen is hidden
-      window.frameworkReady?.();
+      // Removed redundant window.frameworkReady?.(); call as useFrameworkReady hook handles this
     }
   }, [fontsLoaded, fontError]);
 
