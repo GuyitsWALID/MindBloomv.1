@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Sparkles, Check, Star, Brain, ChartBar as BarChart3, Download, Palette, Heart, Shield, Users, BookOpen, Zap, Clock, Target, TrendingUp, Calendar } from 'lucide-react-native';
+import { Crown, Sparkles, Check, Star, Brain, ChartBar as BarChart3, Download, Palette, Heart, Shield, Users, BookOpen, Zap, Clock, Target, TrendingUp, Calendar, FileText, Lightbulb, Activity } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +14,79 @@ interface SubscriptionData {
   current_period_end: number;
   cancel_at_period_end: boolean;
 }
+
+const PREMIUM_FEATURES = [
+  {
+    id: 'unlimited_ai',
+    name: 'AI Wellness Coach',
+    description: 'Get unlimited personalized insights and coaching from our advanced AI',
+    icon: Brain,
+    category: 'ai'
+  },
+  {
+    id: 'advanced_analytics',
+    name: 'Advanced Analytics',
+    description: 'Deep insights into your wellness patterns with predictive analytics',
+    icon: BarChart3,
+    category: 'analytics'
+  },
+  {
+    id: 'journal_analysis',
+    name: 'Therapeutic Journal Analysis',
+    description: 'Weekly AI analysis of your journal entries with therapeutic insights and personalized advice on what to focus on and what to avoid',
+    icon: FileText,
+    category: 'ai'
+  },
+  {
+    id: 'custom_meditations',
+    name: 'Custom Meditation Library',
+    description: 'Access 200+ guided meditations and create personalized sessions',
+    icon: Heart,
+    category: 'content'
+  },
+  {
+    id: 'premium_themes',
+    name: 'Premium Themes',
+    description: 'Unlock beautiful themes and complete customization options',
+    icon: Palette,
+    category: 'customization'
+  },
+  {
+    id: 'priority_support',
+    name: 'Priority Support',
+    description: '24/7 priority support with wellness experts',
+    icon: Shield,
+    category: 'content'
+  },
+  {
+    id: 'family_sharing',
+    name: 'Family Sharing',
+    description: 'Share premium features with up to 4 family members',
+    icon: Users,
+    category: 'content'
+  },
+  {
+    id: 'content_library',
+    name: 'Exclusive Content',
+    description: 'Access premium courses, challenges, and expert content',
+    icon: BookOpen,
+    category: 'content'
+  },
+  {
+    id: 'habit_tracking',
+    name: 'Advanced Habit Tracking',
+    description: 'Track unlimited habits with smart reminders and insights',
+    icon: Target,
+    category: 'coaching'
+  },
+  {
+    id: 'mood_prediction',
+    name: 'Mood Prediction',
+    description: 'AI-powered mood forecasting to prevent difficult days',
+    icon: TrendingUp,
+    category: 'ai'
+  }
+];
 
 export default function PremiumScreen() {
   const { isDark } = useTheme();
@@ -203,16 +276,19 @@ export default function PremiumScreen() {
             <View style={styles.featuresSection}>
               <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Your Premium Features</Text>
               <View style={styles.featuresGrid}>
-                {currentProduct?.features?.slice(0, 8).map((feature, index) => (
-                  <View key={index} style={[styles.featureCard, isDark && styles.darkCard]}>
+                {PREMIUM_FEATURES.map((feature) => (
+                  <View key={feature.id} style={[styles.featureCard, isDark && styles.darkCard]}>
                     <View style={styles.featureIcon}>
-                      <Check size={20} color="#10B981" />
+                      <feature.icon size={24} color="#F59E0B" />
                     </View>
                     <Text style={[styles.featureName, isDark && styles.darkText]}>
-                      {feature}
+                      {feature.name}
+                    </Text>
+                    <Text style={[styles.featureDescription, isDark && styles.darkSubtitle]}>
+                      {feature.description}
                     </Text>
                   </View>
-                )) || []}
+                ))}
               </View>
             </View>
 
@@ -264,6 +340,12 @@ export default function PremiumScreen() {
                 </Text>
               </View>
               <View style={styles.valuePoint}>
+                <FileText size={20} color="#8B5CF6" />
+                <Text style={[styles.valueText, isDark && styles.darkSubtitle]}>
+                  Weekly therapeutic journal analysis with personalized advice
+                </Text>
+              </View>
+              <View style={styles.valuePoint}>
                 <TrendingUp size={20} color="#10B981" />
                 <Text style={[styles.valueText, isDark && styles.darkSubtitle]}>
                   Advanced analytics to track your wellness journey
@@ -275,6 +357,26 @@ export default function PremiumScreen() {
                   Personalized meditation and wellness programs
                 </Text>
               </View>
+            </View>
+          </View>
+
+          {/* Premium Features Showcase */}
+          <View style={styles.featuresSection}>
+            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Premium Features</Text>
+            <View style={styles.featuresGrid}>
+              {PREMIUM_FEATURES.slice(0, 6).map((feature) => (
+                <View key={feature.id} style={[styles.featureCard, isDark && styles.darkCard]}>
+                  <View style={styles.featureIcon}>
+                    <feature.icon size={24} color="#F59E0B" />
+                  </View>
+                  <Text style={[styles.featureName, isDark && styles.darkText]}>
+                    {feature.name}
+                  </Text>
+                  <Text style={[styles.featureDescription, isDark && styles.darkSubtitle]}>
+                    {feature.description}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
 
@@ -437,6 +539,12 @@ export default function PremiumScreen() {
               <View style={styles.comparisonFeature}>
                 <Check size={16} color="#10B981" />
                 <Text style={[styles.comparisonText, isDark && styles.darkSubtitle]}>
+                  Weekly Therapeutic Journal Analysis
+                </Text>
+              </View>
+              <View style={styles.comparisonFeature}>
+                <Check size={16} color="#10B981" />
+                <Text style={[styles.comparisonText, isDark && styles.darkSubtitle]}>
                   Advanced Mood Analytics
                 </Text>
               </View>
@@ -460,7 +568,7 @@ export default function PremiumScreen() {
             <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Loved by Thousands</Text>
             <View style={styles.testimonial}>
               <Text style={[styles.testimonialText, isDark && styles.darkText]}>
-                "The flexibility to choose weekly, monthly, or yearly billing made it easy to find a plan that works for my budget."
+                "The weekly journal analysis is incredible. It's like having a personal therapist who really understands my patterns and gives me actionable advice."
               </Text>
               <Text style={[styles.testimonialAuthor, isDark && styles.darkSubtitle]}>
                 - Sarah M., Premium User
@@ -468,10 +576,18 @@ export default function PremiumScreen() {
             </View>
             <View style={styles.testimonial}>
               <Text style={[styles.testimonialText, isDark && styles.darkText]}>
-                "I started with the weekly plan to try it out, then upgraded to yearly for the savings. Love the flexibility!"
+                "The AI insights help me understand what triggers my anxiety and what activities actually help. It's personalized therapy at my fingertips."
               </Text>
               <Text style={[styles.testimonialAuthor, isDark && styles.darkSubtitle]}>
                 - David L., Premium User
+              </Text>
+            </View>
+            <View style={styles.testimonial}>
+              <Text style={[styles.testimonialText, isDark && styles.darkText]}>
+                "The flexibility to choose weekly, monthly, or yearly billing made it easy to find a plan that works for my budget."
+              </Text>
+              <Text style={[styles.testimonialAuthor, isDark && styles.darkSubtitle]}>
+                - Maria R., Premium User
               </Text>
             </View>
           </View>
@@ -564,6 +680,48 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginLeft: 12,
     flex: 1,
+  },
+  featuresSection: {
+    padding: 24,
+    paddingTop: 0,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  featureCard: {
+    backgroundColor: '#FFFFFF',
+    width: '48%',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  featureIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  featureName: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  featureDescription: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    lineHeight: 16,
   },
   plansSection: {
     padding: 24,
@@ -843,42 +1001,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginLeft: 8,
     flex: 1,
-  },
-  featuresSection: {
-    padding: 24,
-    paddingTop: 0,
-  },
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  featureCard: {
-    backgroundColor: '#FFFFFF',
-    width: '48%',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F0FDF4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  featureName: {
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    textAlign: 'center',
   },
   currentPlanCard: {
     backgroundColor: '#FFFFFF',

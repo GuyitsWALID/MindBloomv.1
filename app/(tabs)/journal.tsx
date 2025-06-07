@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { PenTool, Sparkles, Calendar, Tag, TrendingUp, Search, Filter, Download, FileText, Brain } from 'lucide-react-native';
+import { PenTool, Sparkles, Calendar, Tag, Search, Filter, FileText, Brain, Cloud } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { journalService } from '@/lib/database';
 import { JournalEntry } from '@/types/database';
-import { PremiumFeatureGate } from '@/components/PremiumFeatureGate';
 
 export default function JournalScreen() {
   const { user } = useAuth();
@@ -22,29 +21,12 @@ export default function JournalScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadJournalData();
-      checkPremiumStatus();
     }
   }, [user]);
-
-  const checkPremiumStatus = async () => {
-    if (!user) return;
-    
-    try {
-      const { data } = await supabase
-        .from('stripe_user_subscriptions')
-        .select('subscription_status')
-        .maybeSingle();
-      
-      setIsPremium(data?.subscription_status === 'active' || data?.subscription_status === 'trialing');
-    } catch (error) {
-      console.error('Error checking premium status:', error);
-    }
-  };
 
   const loadJournalData = async () => {
     if (!user) return;
@@ -64,7 +46,7 @@ export default function JournalScreen() {
     }
   };
 
-  const exportJournalData = async () => {
+  const exportToGoogleDrive = async () => {
     if (!user) return;
 
     try {
@@ -88,17 +70,21 @@ export default function JournalScreen() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `mindbloom-journal-${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `mindbloom-journal-backup-${new Date().toISOString().split('T')[0]}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       }
 
-      Alert.alert('Export Complete', 'Your journal data has been exported successfully.');
+      Alert.alert(
+        'Backup Complete! ☁️', 
+        'Your journal has been backed up successfully. This backup includes all your entries, tags, and AI insights for safekeeping.',
+        [{ text: 'Great!', style: 'default' }]
+      );
     } catch (error) {
-      console.error('Error exporting journal data:', error);
-      Alert.alert('Export Failed', 'Failed to export journal data. Please try again.');
+      console.error('Error backing up journal:', error);
+      Alert.alert('Backup Failed', 'Failed to backup your journal. Please try again.');
     }
   };
 
@@ -274,23 +260,25 @@ export default function JournalScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.headerContainer}>
-            <Text style={[styles.greeting, isDark && styles.darkText]}>Your Journal 📝</Text>
-            <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>Reflect, grow, and discover patterns</Text>
-            
-            {/* Premium Features Row */}
-            <View style={styles.premiumFeaturesRow}>
-              <PremiumFeatureGate
-                feature="Export Journal Data"
-                description="Download your complete journal history as CSV for backup or analysis."
-                isActive={isPremium}
-                showUpgrade={false}
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={[styles.greeting, isDark && styles.darkText]}>Your Journal 📝</Text>
+                <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>Reflect, grow, and discover patterns</Text>
+              </View>
+              
+              {/* Google Drive Backup Button */}
+              <TouchableOpacity 
+                style={[styles.backupButton, isDark && styles.darkBackupButton]} 
+                onPress={exportToGoogleDrive}
               >
-                <TouchableOpacity style={[styles.exportButton, isDark && styles.darkExportButton]} onPress={exportJournalData}>
-                  <Download size={16} color="#3B82F6" />
-                  <Text style={[styles.exportButtonText, isDark && styles.darkExportText]}>Export</Text>
-                </TouchableOpacity>
-              </PremiumFeatureGate>
+                <Cloud size={16} color="#4285F4" />
+                <Text style={[styles.backupButtonText, isDark && styles.darkBackupText]}>Backup</Text>
+              </TouchableOpacity>
             </View>
+            
+            <Text style={[styles.backupHint, isDark && styles.darkSubtitle]}>
+              💡 Tap backup to save your journal entries to your device for safekeeping
+            </Text>
           </View>
 
           {/* Search and Filter */}
@@ -470,6 +458,12 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 16,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
   greeting: {
     fontSize: 28,
     fontFamily: 'Inter-Bold',
@@ -480,13 +474,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
-    marginBottom: 16,
   },
-  premiumFeaturesRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  exportButton: {
+  backupButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EBF8FF',
@@ -494,20 +483,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#3B82F6',
+    borderColor: '#4285F4',
   },
-  darkExportButton: {
+  darkBackupButton: {
     backgroundColor: '#1E3A8A',
-    borderColor: '#3B82F6',
+    borderColor: '#4285F4',
   },
-  exportButtonText: {
+  backupButtonText: {
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
-    color: '#3B82F6',
+    color: '#4285F4',
     marginLeft: 6,
   },
-  darkExportText: {
+  darkBackupText: {
     color: '#60A5FA',
+  },
+  backupHint: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    fontStyle: 'italic',
   },
   searchContainer: {
     paddingHorizontal: 24,
