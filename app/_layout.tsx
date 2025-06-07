@@ -29,7 +29,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
-      // Removed redundant window.frameworkReady?.(); call as useFrameworkReady hook handles this
+      // Call framework ready after fonts are loaded and splash screen is hidden
+      window.frameworkReady?.();
     }
   }, [fontsLoaded, fontError]);
 
