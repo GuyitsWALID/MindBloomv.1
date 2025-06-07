@@ -4,6 +4,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
 const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
 const stripeSecret = Deno.env.get('STRIPE_SECRET_KEY')!;
+const domain = Deno.env.get('DOMAIN') ?? 'http://localhost:8081';
 const stripe = new Stripe(stripeSecret, {
   appInfo: {
     name: 'Bolt Integration',
@@ -43,14 +44,12 @@ Deno.serve(async (req) => {
       return corsResponse({ error: 'Method not allowed' }, 405);
     }
 
-    const { price_id, success_url, cancel_url, mode } = await req.json();
+    const { price_id, mode } = await req.json();
 
     const error = validateParameters(
-      { price_id, success_url, cancel_url, mode },
+      { price_id, mode },
       {
-        cancel_url: 'string',
         price_id: 'string',
-        success_url: 'string',
         mode: { values: ['payment', 'subscription'] },
       },
     );
@@ -176,6 +175,10 @@ Deno.serve(async (req) => {
         }
       }
     }
+
+    // Construct URLs using the domain environment variable
+    const success_url = `${domain}/premium/success`;
+    const cancel_url = `${domain}/premium`;
 
     // create Checkout Session
     const session = await stripe.checkout.sessions.create({

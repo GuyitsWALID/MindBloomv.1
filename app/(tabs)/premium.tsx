@@ -67,8 +67,6 @@ export default function PremiumScreen() {
         body: {
           price_id: premiumProduct.priceId,
           mode: premiumProduct.mode,
-          success_url: `${window.location.origin}/premium/success`,
-          cancel_url: `${window.location.origin}/premium`,
         },
       });
 
@@ -77,7 +75,25 @@ export default function PremiumScreen() {
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        if (Platform.OS === 'web') {
+          window.location.href = data.url;
+        } else {
+          // For mobile platforms, you might want to open in a web browser
+          // or handle differently based on your app's requirements
+          Alert.alert(
+            'Checkout Ready',
+            'Please complete your purchase in the browser.',
+            [
+              {
+                text: 'Open Browser',
+                onPress: () => {
+                  // You can use Linking.openURL(data.url) here if needed
+                  console.log('Checkout URL:', data.url);
+                }
+              }
+            ]
+          );
+        }
       } else {
         throw new Error('No checkout URL received');
       }
