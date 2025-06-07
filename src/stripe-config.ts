@@ -18,7 +18,7 @@ export const STRIPE_PRODUCTS: StripeProduct[] = [
     id: 'premium_weekly',
     name: 'Weekly Premium',
     description: 'Perfect for trying out premium features with weekly flexibility.',
-    priceId: 'price_XXXXXXXXXXXXXXXXX', // Replace with your actual Stripe weekly price ID
+    priceId: 'price_1RXMB0Q2n6yCWINPZ5JCt5PE', // Replace with your actual Stripe weekly price ID
     price: 2.99,
     mode: 'subscription',
     currency: 'usd',
@@ -37,7 +37,7 @@ export const STRIPE_PRODUCTS: StripeProduct[] = [
     id: 'premium_monthly',
     name: 'Monthly Premium',
     description: 'Most flexible option with monthly billing and full premium access.',
-    priceId: 'price_XXXXXXXXXXXXXXXXX', // Replace with your actual Stripe monthly price ID
+    priceId: 'price_1RXMHSQ2n6yCWINPQpJPr6Cs', // Replace with your actual Stripe monthly price ID
     price: 9.99,
     mode: 'subscription',
     currency: 'usd',
@@ -59,7 +59,7 @@ export const STRIPE_PRODUCTS: StripeProduct[] = [
     id: 'premium_yearly',
     name: 'Yearly Premium',
     description: 'Best value with significant savings and all premium features included.',
-    priceId: 'price_XXXXXXXXXXXXXXXXX', // Replace with your actual Stripe yearly price ID
+    priceId: 'price_1RXMB0Q2n6yCWINPzDzueb3c', // Replace with your actual Stripe yearly price ID
     price: 79.99,
     mode: 'subscription',
     currency: 'usd',
