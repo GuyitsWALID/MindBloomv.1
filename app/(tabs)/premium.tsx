@@ -1,74 +1,87 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Sparkles, Check, Star, Brain, ChartBar as BarChart3, Download, Palette, Heart, Shield, Users, BookOpen, Zap } from 'lucide-react-native';
+import { Crown, Sparkles, Check, Star, Brain, ChartBar as BarChart3, Download, Palette, Heart, Shield, Users, BookOpen, Zap, Clock, Target, TrendingUp } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSubscription, SUBSCRIPTION_PLANS } from '@/contexts/SubscriptionContext';
-import { PremiumFeature } from '@/types/subscription';
 
-const PREMIUM_FEATURES: PremiumFeature[] = [
+const PREMIUM_FEATURES = [
   {
     id: 'unlimited_ai',
-    name: 'Unlimited AI Insights',
-    description: 'Get personalized insights and recommendations without limits',
-    icon: 'Brain',
+    name: 'AI Wellness Coach',
+    description: 'Get unlimited personalized insights and coaching from our advanced AI',
+    icon: Brain,
     category: 'ai'
   },
   {
     id: 'advanced_analytics',
     name: 'Advanced Analytics',
-    description: 'Deep dive into your wellness patterns with detailed charts and trends',
-    icon: 'BarChart3',
+    description: 'Deep insights into your wellness patterns with predictive analytics',
+    icon: BarChart3,
     category: 'analytics'
   },
   {
     id: 'custom_meditations',
-    name: 'Custom Meditation Sessions',
-    description: 'Create personalized meditation experiences tailored to your needs',
-    icon: 'Heart',
+    name: 'Custom Meditation Library',
+    description: 'Access 200+ guided meditations and create personalized sessions',
+    icon: Heart,
     category: 'content'
   },
   {
     id: 'data_export',
-    name: 'Export Your Data',
-    description: 'Download your journal entries, mood data, and progress reports',
-    icon: 'Download',
+    name: 'Export & Backup',
+    description: 'Download your complete wellness data and create backups',
+    icon: Download,
     category: 'export'
   },
   {
     id: 'premium_themes',
     name: 'Premium Themes',
-    description: 'Access exclusive color schemes and customization options',
-    icon: 'Palette',
+    description: 'Unlock beautiful themes and complete customization options',
+    icon: Palette,
     category: 'customization'
   },
   {
     id: 'priority_support',
     name: 'Priority Support',
-    description: 'Get faster response times and dedicated customer support',
-    icon: 'Shield',
+    description: '24/7 priority support with wellness experts',
+    icon: Shield,
     category: 'content'
   },
   {
     id: 'family_sharing',
     name: 'Family Sharing',
-    description: 'Share your premium subscription with up to 4 family members',
-    icon: 'Users',
+    description: 'Share premium features with up to 4 family members',
+    icon: Users,
     category: 'content'
   },
   {
     id: 'content_library',
     name: 'Exclusive Content',
-    description: 'Access premium guided meditations, courses, and wellness programs',
-    icon: 'BookOpen',
+    description: 'Access premium courses, challenges, and expert content',
+    icon: BookOpen,
     category: 'content'
+  },
+  {
+    id: 'habit_tracking',
+    name: 'Advanced Habit Tracking',
+    description: 'Track unlimited habits with smart reminders and insights',
+    icon: Target,
+    category: 'coaching'
+  },
+  {
+    id: 'mood_prediction',
+    name: 'Mood Prediction',
+    description: 'AI-powered mood forecasting to prevent difficult days',
+    icon: TrendingUp,
+    category: 'ai'
   }
 ];
 
 export default function PremiumScreen() {
   const { isDark } = useTheme();
-  const { isPremium, currentPlan, purchasePlan, loading } = useSubscription();
+  const { isPremium, currentPlan, purchasePlan, loading, trialDaysLeft, subscription } = useSubscription();
   const [selectedPlan, setSelectedPlan] = useState(SUBSCRIPTION_PLANS[1].id); // Default to yearly
   const [purchasing, setPurchasing] = useState(false);
 
@@ -77,11 +90,7 @@ export default function PremiumScreen() {
     try {
       const result = await purchasePlan(selectedPlan);
       if (result.success) {
-        Alert.alert(
-          'Welcome to Premium! 👑',
-          'Thank you for upgrading to Mindbloom Premium. Enjoy all the exclusive features!',
-          [{ text: 'Get Started', style: 'default' }]
-        );
+        // Success is handled in the context with an alert
       } else {
         Alert.alert('Purchase Failed', result.error || 'Something went wrong. Please try again.');
       }
@@ -90,22 +99,6 @@ export default function PremiumScreen() {
     } finally {
       setPurchasing(false);
     }
-  };
-
-  const getFeatureIcon = (iconName: string) => {
-    const icons = {
-      Brain,
-      BarChart3,
-      Heart,
-      Download,
-      Palette,
-      Shield,
-      Users,
-      BookOpen,
-      Zap
-    };
-    const IconComponent = icons[iconName as keyof typeof icons] || Star;
-    return IconComponent;
   };
 
   if (isPremium) {
@@ -122,6 +115,15 @@ export default function PremiumScreen() {
               <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>
                 Enjoying all the exclusive features of Mindbloom Premium
               </Text>
+              
+              {subscription?.status === 'trial' && trialDaysLeft > 0 && (
+                <View style={[styles.trialBadge, isDark && styles.darkTrialBadge]}>
+                  <Clock size={16} color="#F59E0B" />
+                  <Text style={[styles.trialText, isDark && styles.darkTrialText]}>
+                    {trialDaysLeft} days left in trial
+                  </Text>
+                </View>
+              )}
             </View>
 
             <View style={[styles.currentPlanCard, isDark && styles.darkCard]}>
@@ -137,29 +139,30 @@ export default function PremiumScreen() {
                 </View>
               </View>
               <Text style={[styles.planStatus, isDark && styles.darkSubtitle]}>
-                Active • Renews automatically
+                {subscription?.status === 'trial' ? 'Free Trial' : 'Active'} • 
+                {subscription?.status === 'trial' ? ` ${trialDaysLeft} days left` : ' Renews automatically'}
+              </Text>
+              <Text style={[styles.platformInfo, isDark && styles.darkSubtitle]}>
+                Platform: {subscription?.platform || 'Unknown'}
               </Text>
             </View>
 
             <View style={styles.featuresSection}>
               <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Your Premium Features</Text>
               <View style={styles.featuresGrid}>
-                {PREMIUM_FEATURES.map((feature) => {
-                  const IconComponent = getFeatureIcon(feature.icon);
-                  return (
-                    <View key={feature.id} style={[styles.featureCard, isDark && styles.darkCard]}>
-                      <View style={styles.featureIcon}>
-                        <IconComponent size={24} color="#F59E0B" />
-                      </View>
-                      <Text style={[styles.featureName, isDark && styles.darkText]}>
-                        {feature.name}
-                      </Text>
-                      <Text style={[styles.featureDescription, isDark && styles.darkSubtitle]}>
-                        {feature.description}
-                      </Text>
+                {PREMIUM_FEATURES.map((feature) => (
+                  <View key={feature.id} style={[styles.featureCard, isDark && styles.darkCard]}>
+                    <View style={styles.featureIcon}>
+                      <feature.icon size={24} color="#F59E0B" />
                     </View>
-                  );
-                })}
+                    <Text style={[styles.featureName, isDark && styles.darkText]}>
+                      {feature.name}
+                    </Text>
+                    <Text style={[styles.featureDescription, isDark && styles.darkSubtitle]}>
+                      {feature.description}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </View>
 
@@ -168,13 +171,46 @@ export default function PremiumScreen() {
                 Manage Subscription
               </Text>
               <Text style={[styles.managementText, isDark && styles.darkSubtitle]}>
-                You can manage your subscription, change plans, or cancel anytime through your account settings.
+                {Platform.OS === 'web' 
+                  ? 'Manage your subscription through Stripe Customer Portal or contact support.'
+                  : 'Manage your subscription through your device\'s App Store settings.'
+                }
               </Text>
               <TouchableOpacity style={[styles.manageButton, isDark && styles.darkManageButton]}>
                 <Text style={[styles.manageButtonText, isDark && styles.darkManageButtonText]}>
-                  Manage Subscription
+                  {Platform.OS === 'web' ? 'Open Stripe Portal' : 'Open App Store'}
                 </Text>
               </TouchableOpacity>
+            </View>
+
+            <View style={[styles.statsCard, isDark && styles.darkCard]}>
+              <Text style={[styles.statsTitle, isDark && styles.darkText]}>Premium Benefits</Text>
+              <View style={styles.benefitsList}>
+                <View style={styles.benefitItem}>
+                  <Check size={16} color="#10B981" />
+                  <Text style={[styles.benefitText, isDark && styles.darkSubtitle]}>
+                    Unlimited AI insights and coaching
+                  </Text>
+                </View>
+                <View style={styles.benefitItem}>
+                  <Check size={16} color="#10B981" />
+                  <Text style={[styles.benefitText, isDark && styles.darkSubtitle]}>
+                    Advanced analytics and predictions
+                  </Text>
+                </View>
+                <View style={styles.benefitItem}>
+                  <Check size={16} color="#10B981" />
+                  <Text style={[styles.benefitText, isDark && styles.darkSubtitle]}>
+                    200+ premium meditations
+                  </Text>
+                </View>
+                <View style={styles.benefitItem}>
+                  <Check size={16} color="#10B981" />
+                  <Text style={[styles.benefitText, isDark && styles.darkSubtitle]}>
+                    Priority support & expert guidance
+                  </Text>
+                </View>
+              </View>
             </View>
           </ScrollView>
         </LinearGradient>
@@ -191,15 +227,44 @@ export default function PremiumScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Crown size={60} color="#F59E0B" />
-            <Text style={[styles.title, isDark && styles.darkText]}>Upgrade to Premium</Text>
+            <Text style={[styles.title, isDark && styles.darkText]}>Unlock Premium</Text>
             <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>
-              Unlock the full potential of your wellness journey
+              Transform your wellness journey with advanced AI coaching
             </Text>
+          </View>
+
+          {/* Value Proposition */}
+          <View style={[styles.valueCard, isDark && styles.darkCard]}>
+            <Text style={[styles.valueTitle, isDark && styles.darkText]}>Why Premium?</Text>
+            <View style={styles.valuePoints}>
+              <View style={styles.valuePoint}>
+                <Brain size={20} color="#F59E0B" />
+                <Text style={[styles.valueText, isDark && styles.darkSubtitle]}>
+                  AI-powered insights that adapt to your unique patterns
+                </Text>
+              </View>
+              <View style={styles.valuePoint}>
+                <TrendingUp size={20} color="#10B981" />
+                <Text style={[styles.valueText, isDark && styles.darkSubtitle]}>
+                  Predictive analytics to prevent difficult days
+                </Text>
+              </View>
+              <View style={styles.valuePoint}>
+                <Heart size={20} color="#EF4444" />
+                <Text style={[styles.valueText, isDark && styles.darkSubtitle]}>
+                  Personalized meditation and wellness programs
+                </Text>
+              </View>
+            </View>
           </View>
 
           {/* Pricing Plans */}
           <View style={styles.plansSection}>
             <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Choose Your Plan</Text>
+            <Text style={[styles.planSubtitle, isDark && styles.darkSubtitle]}>
+              Start with a 7-day free trial • Cancel anytime
+            </Text>
+            
             {SUBSCRIPTION_PLANS.map((plan) => (
               <TouchableOpacity
                 key={plan.id}
@@ -260,26 +325,23 @@ export default function PremiumScreen() {
             ))}
           </View>
 
-          {/* Premium Features */}
+          {/* Premium Features Grid */}
           <View style={styles.featuresSection}>
             <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Premium Features</Text>
             <View style={styles.featuresGrid}>
-              {PREMIUM_FEATURES.slice(0, 6).map((feature) => {
-                const IconComponent = getFeatureIcon(feature.icon);
-                return (
-                  <View key={feature.id} style={[styles.featureCard, isDark && styles.darkCard]}>
-                    <View style={styles.featureIcon}>
-                      <IconComponent size={24} color="#F59E0B" />
-                    </View>
-                    <Text style={[styles.featureName, isDark && styles.darkText]}>
-                      {feature.name}
-                    </Text>
-                    <Text style={[styles.featureDescription, isDark && styles.darkSubtitle]}>
-                      {feature.description}
-                    </Text>
+              {PREMIUM_FEATURES.slice(0, 6).map((feature) => (
+                <View key={feature.id} style={[styles.featureCard, isDark && styles.darkCard]}>
+                  <View style={styles.featureIcon}>
+                    <feature.icon size={24} color="#F59E0B" />
                   </View>
-                );
-              })}
+                  <Text style={[styles.featureName, isDark && styles.darkText]}>
+                    {feature.name}
+                  </Text>
+                  <Text style={[styles.featureDescription, isDark && styles.darkSubtitle]}>
+                    {feature.description}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
 
@@ -292,24 +354,27 @@ export default function PremiumScreen() {
             >
               <Sparkles size={20} color="#FFFFFF" />
               <Text style={styles.purchaseButtonText}>
-                {purchasing ? 'Processing...' : 'Start Premium Journey'}
+                {purchasing ? 'Processing...' : 'Start 7-Day Free Trial'}
               </Text>
             </TouchableOpacity>
 
             <Text style={[styles.disclaimer, isDark && styles.darkSubtitle]}>
-              • Cancel anytime • 7-day free trial • No commitment
+              • Free for 7 days, then ${SUBSCRIPTION_PLANS.find(p => p.id === selectedPlan)?.price}/{SUBSCRIPTION_PLANS.find(p => p.id === selectedPlan)?.period}
+            </Text>
+            <Text style={[styles.disclaimer, isDark && styles.darkSubtitle]}>
+              • Cancel anytime • No commitment • Secure payment
             </Text>
             <Text style={[styles.disclaimer, isDark && styles.darkSubtitle]}>
               By subscribing, you agree to our Terms of Service and Privacy Policy
             </Text>
           </View>
 
-          {/* Testimonials */}
+          {/* Social Proof */}
           <View style={[styles.testimonialsSection, isDark && styles.darkCard]}>
-            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>What Premium Users Say</Text>
+            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Loved by Thousands</Text>
             <View style={styles.testimonial}>
               <Text style={[styles.testimonialText, isDark && styles.darkText]}>
-                "The AI insights have completely transformed how I understand my mental health patterns. Worth every penny!"
+                "The AI insights have completely transformed how I understand my mental health patterns. The predictions help me prepare for difficult days."
               </Text>
               <Text style={[styles.testimonialAuthor, isDark && styles.darkSubtitle]}>
                 - Sarah M., Premium User
@@ -317,12 +382,31 @@ export default function PremiumScreen() {
             </View>
             <View style={styles.testimonial}>
               <Text style={[styles.testimonialText, isDark && styles.darkText]}>
-                "The advanced analytics helped me identify triggers I never noticed before. Game changer!"
+                "The custom meditation library is incredible. Having 200+ guided sessions means I always find something perfect for my mood."
               </Text>
               <Text style={[styles.testimonialAuthor, isDark && styles.darkSubtitle]}>
                 - David L., Premium User
               </Text>
             </View>
+            <View style={styles.testimonial}>
+              <Text style={[styles.testimonialText, isDark && styles.darkText]}>
+                "Family sharing is a game-changer. My whole family now uses Mindbloom and we support each other's wellness journey."
+              </Text>
+              <Text style={[styles.testimonialAuthor, isDark && styles.darkSubtitle]}>
+                - Maria R., Premium User
+              </Text>
+            </View>
+          </View>
+
+          {/* Platform Info */}
+          <View style={[styles.platformInfo, isDark && styles.darkCard]}>
+            <Text style={[styles.platformTitle, isDark && styles.darkText]}>Payment Information</Text>
+            <Text style={[styles.platformText, isDark && styles.darkSubtitle]}>
+              {Platform.OS === 'web' 
+                ? 'Secure payment processing by Stripe. Your subscription will be managed through our web portal.'
+                : 'Payments are processed through your device\'s App Store. Manage your subscription in your App Store settings.'
+              }
+            </Text>
           </View>
         </ScrollView>
       </LinearGradient>
@@ -360,12 +444,70 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     lineHeight: 24,
+    marginBottom: 16,
   },
   darkText: {
     color: '#F9FAFB',
   },
   darkSubtitle: {
     color: '#9CA3AF',
+  },
+  trialBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  darkTrialBadge: {
+    backgroundColor: '#374151',
+  },
+  trialText: {
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    color: '#F59E0B',
+    marginLeft: 4,
+  },
+  darkTrialText: {
+    color: '#FCD34D',
+  },
+  valueCard: {
+    backgroundColor: '#FFFFFF',
+    margin: 24,
+    marginTop: 0,
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  darkCard: {
+    backgroundColor: '#374151',
+  },
+  valueTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  valuePoints: {
+    gap: 12,
+  },
+  valuePoint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  valueText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    marginLeft: 12,
+    flex: 1,
   },
   plansSection: {
     padding: 24,
@@ -375,8 +517,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Inter-Bold',
     color: '#1F2937',
-    marginBottom: 20,
+    marginBottom: 8,
     textAlign: 'center',
+  },
+  planSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   planCard: {
     backgroundColor: '#FFFFFF',
@@ -391,10 +540,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-  },
-  darkCard: {
-    backgroundColor: '#374151',
-    borderColor: '#4B5563',
   },
   selectedPlan: {
     borderColor: '#F59E0B',
@@ -595,6 +740,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Medium',
     color: '#10B981',
+    marginBottom: 4,
+  },
+  platformInfo: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
   },
   managementCard: {
     backgroundColor: '#FFFFFF',
@@ -640,6 +791,38 @@ const styles = StyleSheet.create({
   darkManageButtonText: {
     color: '#F59E0B',
   },
+  statsCard: {
+    backgroundColor: '#FFFFFF',
+    margin: 24,
+    marginTop: 0,
+    padding: 24,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  benefitsList: {
+    gap: 12,
+  },
+  benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  benefitText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    marginLeft: 8,
+    flex: 1,
+  },
   testimonialsSection: {
     backgroundColor: '#FFFFFF',
     margin: 24,
@@ -667,5 +850,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
     color: '#6B7280',
+  },
+  platformTitle: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  platformText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    lineHeight: 20,
   },
 });

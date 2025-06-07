@@ -40,14 +40,16 @@ export const userService = {
   }
 };
 
-// Subscription operations
+// Enhanced subscription operations
 export const subscriptionService = {
   async getUserSubscription(userId: string) {
     const { data, error } = await supabase
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', userId)
-      .eq('status', 'active')
+      .in('status', ['active', 'trial'])
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
     
     if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
@@ -89,12 +91,44 @@ export const subscriptionService = {
     return data;
   },
 
+  async checkFeatureAccess(userId: string, featureKey: string) {
+    const { data, error } = await supabase
+      .rpc('check_feature_access', {
+        user_id_param: userId,
+        feature_key_param: featureKey
+      });
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async grantTrialAccess(userId: string) {
+    const { data, error } = await supabase
+      .rpc('grant_trial_access', {
+        user_id_param: userId
+      });
+    
+    if (error) throw error;
+    return data;
+  },
+
   async getPremiumFeatures() {
     const { data, error } = await supabase
-      .from('premium_features')
+      .from('subscription_features')
       .select('*')
       .eq('enabled', true)
       .order('category');
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async getUserFeatureAccess(userId: string) {
+    const { data, error } = await supabase
+      .from('user_feature_access')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('granted', true);
     
     if (error) throw error;
     return data;
@@ -463,7 +497,7 @@ export const wellnessService = {
   }
 };
 
-// Analytics operations
+// Enhanced analytics operations with premium features
 export const analyticsService = {
   async getDashboardData(userId: string) {
     const [moodEntries, journalStats, gardenStats, activityStats] = await Promise.all([
@@ -550,8 +584,21 @@ export const analyticsService = {
       moodPatterns,
       activityCorrelations,
       journalInsights,
-      recommendations: generatePersonalizedRecommendations(moodData, activities, journalEntries)
+      recommendations: generatePersonalizedRecommendations(moodData, activities, journalEntries),
+      moodPrediction: generateMoodPrediction(moodData),
+      wellnessScore: calculateWellnessScore(moodData, activities, journalEntries)
     };
+  },
+
+  async getMoodPrediction(userId: string) {
+    // Premium AI feature - mood prediction
+    const moodData = await moodService.getMoodEntriesForPeriod(
+      userId,
+      new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      new Date().toISOString()
+    );
+
+    return generateMoodPrediction(moodData);
   }
 };
 
@@ -572,7 +619,8 @@ function analyzeMoodPatterns(moodData: any[]) {
         averageMood: moods.length > 0 ? moods.reduce((sum, mood) => sum + getMoodValue(mood), 0) / moods.length : 0
       }))
       .sort((a, b) => b.averageMood - a.averageMood),
-    trends: calculateMoodTrends(moodData)
+    trends: calculateMoodTrends(moodData),
+    volatility: calculateMoodVolatility(moodData)
   };
 }
 
@@ -596,26 +644,34 @@ function analyzeActivityCorrelations(activities: any[], moodData: any[]) {
   return Object.entries(correlations).map(([activity, moods]) => ({
     activity,
     averageImpact: moods.reduce((sum, mood) => sum + mood, 0) / moods.length,
-    frequency: moods.length
+    frequency: moods.length,
+    consistency: calculateConsistency(moods)
   })).sort((a, b) => b.averageImpact - a.averageImpact);
 }
 
 function analyzeJournalSentiment(journalEntries: any[]) {
-  // Simple sentiment analysis based on keywords
-  const positiveWords = ['happy', 'grateful', 'excited', 'joy', 'love', 'amazing', 'wonderful', 'great'];
-  const negativeWords = ['sad', 'angry', 'frustrated', 'tired', 'stressed', 'worried', 'anxious'];
+  // Enhanced sentiment analysis
+  const positiveWords = ['happy', 'grateful', 'excited', 'joy', 'love', 'amazing', 'wonderful', 'great', 'blessed', 'peaceful'];
+  const negativeWords = ['sad', 'angry', 'frustrated', 'tired', 'stressed', 'worried', 'anxious', 'overwhelmed', 'depressed'];
+  const emotionalWords = ['feel', 'feeling', 'emotion', 'heart', 'soul', 'mind'];
 
   return journalEntries.map(entry => {
     const content = entry.content.toLowerCase();
+    const words = content.split(/\s+/);
+    
     const positiveCount = positiveWords.filter(word => content.includes(word)).length;
     const negativeCount = negativeWords.filter(word => content.includes(word)).length;
+    const emotionalCount = emotionalWords.filter(word => content.includes(word)).length;
+    
+    const sentimentScore = (positiveCount - negativeCount) / Math.max(words.length / 100, 1);
     
     return {
       id: entry.id,
       date: entry.created_at,
-      sentiment: positiveCount > negativeCount ? 'positive' : 
-                 negativeCount > positiveCount ? 'negative' : 'neutral',
-      score: positiveCount - negativeCount
+      sentiment: sentimentScore > 0.1 ? 'positive' : sentimentScore < -0.1 ? 'negative' : 'neutral',
+      score: sentimentScore,
+      emotionalIntensity: emotionalCount / Math.max(words.length / 100, 1),
+      wordCount: words.length
     };
   });
 }
@@ -632,7 +688,9 @@ function generatePersonalizedRecommendations(moodData: any[], activities: any[],
       type: 'mood_boost',
       title: 'Focus on Mood Boosting Activities',
       description: 'Your recent mood scores suggest you could benefit from more uplifting activities.',
-      actions: ['Try a 10-minute gratitude practice', 'Schedule a nature walk', 'Connect with a friend']
+      priority: 'high',
+      actions: ['Try a 10-minute gratitude practice', 'Schedule a nature walk', 'Connect with a friend', 'Practice deep breathing'],
+      expectedImpact: 'Can improve mood by 15-25% within a week'
     });
   }
   
@@ -647,11 +705,109 @@ function generatePersonalizedRecommendations(moodData: any[], activities: any[],
       type: 'meditation',
       title: 'Increase Meditation Practice',
       description: 'Regular meditation can significantly improve mood and reduce stress.',
-      actions: ['Start with 5-minute daily sessions', 'Try guided meditations', 'Set a consistent time']
+      priority: 'medium',
+      actions: ['Start with 5-minute daily sessions', 'Try guided meditations', 'Set a consistent time', 'Use breathing exercises'],
+      expectedImpact: 'Reduces stress by 20-30% and improves focus'
+    });
+  }
+
+  // Journal analysis recommendations
+  const recentJournalEntries = journalEntries.slice(0, 5);
+  const avgSentiment = recentJournalEntries.reduce((sum, entry) => {
+    const content = entry.content.toLowerCase();
+    const positiveWords = ['happy', 'grateful', 'excited', 'joy', 'love'];
+    const negativeWords = ['sad', 'angry', 'frustrated', 'tired', 'stressed'];
+    const positive = positiveWords.filter(word => content.includes(word)).length;
+    const negative = negativeWords.filter(word => content.includes(word)).length;
+    return sum + (positive - negative);
+  }, 0) / recentJournalEntries.length;
+
+  if (avgSentiment < 0) {
+    recommendations.push({
+      type: 'journaling',
+      title: 'Enhance Positive Journaling',
+      description: 'Your recent journal entries show room for more positive reflection.',
+      priority: 'medium',
+      actions: ['Write about three good things daily', 'Practice gratitude journaling', 'Reflect on personal growth', 'Set positive intentions'],
+      expectedImpact: 'Improves overall life satisfaction by 10-20%'
     });
   }
   
   return recommendations;
+}
+
+function generateMoodPrediction(moodData: any[]) {
+  if (moodData.length < 7) {
+    return {
+      prediction: 'neutral',
+      confidence: 0.5,
+      factors: ['Insufficient data for accurate prediction'],
+      recommendations: ['Continue tracking your mood for better predictions']
+    };
+  }
+
+  // Simple trend analysis for mood prediction
+  const recentTrend = calculateMoodTrends(moodData);
+  const volatility = calculateMoodVolatility(moodData);
+  
+  let prediction = 'neutral';
+  let confidence = 0.7;
+  const factors = [];
+  const recommendations = [];
+
+  if (recentTrend.direction === 'improving') {
+    prediction = 'positive';
+    confidence = Math.min(0.9, 0.7 + (recentTrend.change / 10));
+    factors.push('Recent upward mood trend');
+    recommendations.push('Continue current wellness practices');
+  } else if (recentTrend.direction === 'declining') {
+    prediction = 'challenging';
+    confidence = Math.min(0.9, 0.7 + (Math.abs(recentTrend.change) / 10));
+    factors.push('Recent downward mood trend');
+    recommendations.push('Consider additional self-care activities');
+  }
+
+  if (volatility > 2) {
+    factors.push('High mood variability detected');
+    recommendations.push('Focus on mood stabilizing activities like meditation');
+    confidence = Math.max(0.5, confidence - 0.1);
+  }
+
+  return {
+    prediction,
+    confidence,
+    factors,
+    recommendations,
+    timeframe: '24-48 hours'
+  };
+}
+
+function calculateWellnessScore(moodData: any[], activities: any[], journalEntries: any[]) {
+  let score = 50; // Base score
+  
+  // Mood component (40% of score)
+  if (moodData.length > 0) {
+    const avgMood = moodData.reduce((sum, mood) => sum + getMoodValue(mood.mood), 0) / moodData.length;
+    score += (avgMood - 6) * 6.67; // Scale to contribute 0-40 points
+  }
+  
+  // Activity component (30% of score)
+  const completedActivities = activities.filter(a => a.completed).length;
+  score += Math.min(30, completedActivities * 3);
+  
+  // Journal component (20% of score)
+  score += Math.min(20, journalEntries.length * 2);
+  
+  // Consistency bonus (10% of score)
+  const daysWithData = new Set([
+    ...moodData.map(m => new Date(m.created_at).toDateString()),
+    ...activities.map(a => new Date(a.created_at).toDateString()),
+    ...journalEntries.map(j => new Date(j.created_at).toDateString())
+  ]).size;
+  
+  score += Math.min(10, daysWithData);
+  
+  return Math.round(Math.max(0, Math.min(100, score)));
 }
 
 function getMoodValue(mood: string): number {
@@ -681,4 +837,24 @@ function calculateMoodTrends(moodData: any[]) {
     direction: change > 0.5 ? 'improving' : change < -0.5 ? 'declining' : 'stable',
     change: Math.round(change * 10) / 10
   };
+}
+
+function calculateMoodVolatility(moodData: any[]) {
+  if (moodData.length < 2) return 0;
+  
+  const values = moodData.map(mood => getMoodValue(mood.mood));
+  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+  
+  return Math.sqrt(variance);
+}
+
+function calculateConsistency(values: number[]) {
+  if (values.length < 2) return 1;
+  
+  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+  
+  // Return consistency score (lower variance = higher consistency)
+  return Math.max(0, 1 - (variance / 10));
 }

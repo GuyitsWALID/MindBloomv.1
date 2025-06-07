@@ -1,18 +1,23 @@
 export async function POST(request: Request) {
   try {
-    const { planId, userId } = await request.json();
+    const { planId, userId, priceId } = await request.json();
     
-    // This is a mock implementation for demonstration
-    // In a real app, you would integrate with Stripe's API
+    // Validate required fields
+    if (!planId || !userId) {
+      return Response.json({ error: 'Missing required fields' }, { status: 400 });
+    }
     
+    // Plan pricing mapping
     const plans = {
       'mindbloom_monthly': {
         price: 999, // $9.99 in cents
-        name: 'Mindbloom Monthly Premium'
+        name: 'Mindbloom Monthly Premium',
+        priceId: 'price_monthly_premium'
       },
       'mindbloom_yearly': {
         price: 7999, // $79.99 in cents
-        name: 'Mindbloom Yearly Premium'
+        name: 'Mindbloom Yearly Premium',
+        priceId: 'price_yearly_premium'
       }
     };
     
@@ -22,7 +27,6 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Invalid plan ID' }, { status: 400 });
     }
     
-    // Mock Stripe checkout session creation
     // In production, you would use the Stripe SDK:
     /*
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -30,19 +34,26 @@ export async function POST(request: Request) {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: plan.name,
-          },
-          unit_amount: plan.price,
-        },
+        price: plan.priceId, // Use the actual Stripe Price ID
         quantity: 1,
       }],
       mode: 'subscription',
-      success_url: `${process.env.DOMAIN}/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.DOMAIN}/premium/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.DOMAIN}/premium`,
       client_reference_id: userId,
+      customer_email: userEmail, // You'd get this from your user data
+      metadata: {
+        userId: userId,
+        planId: planId,
+      },
+      subscription_data: {
+        trial_period_days: 7, // 7-day free trial
+        metadata: {
+          userId: userId,
+          planId: planId,
+        },
+      },
+      allow_promotion_codes: true,
     });
     
     return Response.json({ url: session.url });
@@ -51,6 +62,7 @@ export async function POST(request: Request) {
     // For demo purposes, return a mock URL
     return Response.json({ 
       url: `https://checkout.stripe.com/pay/demo#${planId}`,
+      sessionId: `cs_demo_${Date.now()}`,
       message: 'This is a demo. In production, this would redirect to Stripe Checkout.'
     });
     
