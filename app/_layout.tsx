@@ -29,6 +29,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
+      // Removed redundant window.frameworkReady?.(); call as useFrameworkReady hook handles this
     }
   }, [fontsLoaded, fontError]);
 

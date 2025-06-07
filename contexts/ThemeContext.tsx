@@ -15,41 +15,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    
-    loadTheme().then((theme) => {
-      if (mounted) {
-        setIsDark(theme);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
+    loadTheme();
   }, []);
 
-  const loadTheme = async (): Promise<boolean> => {
+  const loadTheme = async () => {
     try {
       let savedTheme;
       if (Platform.OS === 'web') {
-        savedTheme = typeof window !== 'undefined' ? localStorage.getItem(THEME_KEY) : null;
+        savedTheme = localStorage.getItem(THEME_KEY);
       } else {
         savedTheme = await SecureStore.getItemAsync(THEME_KEY);
       }
       
-      return savedTheme === 'dark';
+      if (savedTheme !== null) {
+        setIsDark(savedTheme === 'dark');
+      }
     } catch (error) {
       console.error('Error loading theme:', error);
-      return false;
     }
   };
 
   const saveTheme = async (theme: string) => {
     try {
       if (Platform.OS === 'web') {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(THEME_KEY, theme);
-        }
+        localStorage.setItem(THEME_KEY, theme);
       } else {
         await SecureStore.setItemAsync(THEME_KEY, theme);
       }
