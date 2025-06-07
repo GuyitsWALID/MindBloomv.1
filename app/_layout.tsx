@@ -6,6 +6,7 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } f
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { PaymentProvider } from '@/contexts/PaymentContext'
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext'
 import { useFrameworkReady } from '@/hooks/useFrameworkReady'
 
@@ -41,15 +42,17 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <SubscriptionProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="activities" />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" />
-        </SubscriptionProvider>
+        <PaymentProvider>
+          <SubscriptionProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="activities" />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="auto" />
+          </SubscriptionProvider>
+        </PaymentProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -42,6 +42,11 @@ export async function POST(request: Request) {
         await handlePaymentFailure(failedInvoice);
         break;
         
+      case 'invoice.payment_succeeded':
+        const successfulInvoice = event.data.object;
+        await handlePaymentSuccess(successfulInvoice);
+        break;
+        
       default:
         console.log(`Unhandled event type ${event.type}`);
     }
@@ -102,6 +107,14 @@ async function handlePaymentFailure(invoice) {
   const { data, error } = await supabase
     .from('user_subscriptions')
     .update({ status: 'past_due' })
+    .eq('stripe_subscription_id', invoice.subscription);
+}
+
+async function handlePaymentSuccess(invoice) {
+  // Update subscription status if needed
+  const { data, error } = await supabase
+    .from('user_subscriptions')
+    .update({ status: 'active' })
     .eq('stripe_subscription_id', invoice.subscription);
 }
 */

@@ -5,6 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Sparkles, Check, Star, Brain, ChartBar as BarChart3, Download, Palette, Heart, Shield, Users, BookOpen, Zap, Clock, Target, TrendingUp } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSubscription, SUBSCRIPTION_PLANS } from '@/contexts/SubscriptionContext';
+import { usePayments } from '@/contexts/PaymentContext';
+import { PaymentPlatformInfo } from '@/components/PaymentPlatformInfo';
 
 const PREMIUM_FEATURES = [
   {
@@ -82,6 +84,7 @@ const PREMIUM_FEATURES = [
 export default function PremiumScreen() {
   const { isDark } = useTheme();
   const { isPremium, currentPlan, purchasePlan, loading, trialDaysLeft, subscription } = useSubscription();
+  const { openManageSubscription } = usePayments();
   const [selectedPlan, setSelectedPlan] = useState(SUBSCRIPTION_PLANS[1].id); // Default to yearly
   const [purchasing, setPurchasing] = useState(false);
 
@@ -89,10 +92,8 @@ export default function PremiumScreen() {
     setPurchasing(true);
     try {
       const result = await purchasePlan(selectedPlan);
-      if (result.success) {
-        // Success is handled in the context with an alert
-      } else {
-        Alert.alert('Purchase Failed', result.error || 'Something went wrong. Please try again.');
+      if (!result.success && result.error) {
+        Alert.alert('Purchase Failed', result.error);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to process purchase. Please try again.');
@@ -176,12 +177,17 @@ export default function PremiumScreen() {
                   : 'Manage your subscription through your device\'s App Store settings.'
                 }
               </Text>
-              <TouchableOpacity style={[styles.manageButton, isDark && styles.darkManageButton]}>
+              <TouchableOpacity 
+                style={[styles.manageButton, isDark && styles.darkManageButton]}
+                onPress={openManageSubscription}
+              >
                 <Text style={[styles.manageButtonText, isDark && styles.darkManageButtonText]}>
                   {Platform.OS === 'web' ? 'Open Stripe Portal' : 'Open App Store'}
                 </Text>
               </TouchableOpacity>
             </View>
+
+            <PaymentPlatformInfo isDark={isDark} />
 
             <View style={[styles.statsCard, isDark && styles.darkCard]}>
               <Text style={[styles.statsTitle, isDark && styles.darkText]}>Premium Benefits</Text>
@@ -369,6 +375,9 @@ export default function PremiumScreen() {
             </Text>
           </View>
 
+          {/* Payment Platform Info */}
+          <PaymentPlatformInfo isDark={isDark} />
+
           {/* Social Proof */}
           <View style={[styles.testimonialsSection, isDark && styles.darkCard]}>
             <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Loved by Thousands</Text>
@@ -396,17 +405,6 @@ export default function PremiumScreen() {
                 - Maria R., Premium User
               </Text>
             </View>
-          </View>
-
-          {/* Platform Info */}
-          <View style={[styles.platformInfo, isDark && styles.darkCard]}>
-            <Text style={[styles.platformTitle, isDark && styles.darkText]}>Payment Information</Text>
-            <Text style={[styles.platformText, isDark && styles.darkSubtitle]}>
-              {Platform.OS === 'web' 
-                ? 'Secure payment processing by Stripe. Your subscription will be managed through our web portal.'
-                : 'Payments are processed through your device\'s App Store. Manage your subscription in your App Store settings.'
-              }
-            </Text>
           </View>
         </ScrollView>
       </LinearGradient>
@@ -850,17 +848,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
     color: '#6B7280',
-  },
-  platformTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  platformText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    lineHeight: 20,
   },
 });

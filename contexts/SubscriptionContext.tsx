@@ -1,57 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform, Alert } from 'react-native';
 import { useAuth } from './AuthContext';
+import { usePayments, PAYMENT_PLANS } from './PaymentContext';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionPlan, UserSubscription, SubscriptionContextType } from '@/types/subscription';
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
-// Subscription plans with competitive pricing
-export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  {
-    id: 'mindbloom_monthly',
-    name: 'Monthly Premium',
-    price: 9.99,
-    period: 'monthly',
-    revenueCatId: 'mindbloom_monthly_999',
-    stripeId: 'price_monthly_premium',
-    features: [
-      'Unlimited AI Insights & Coaching',
-      'Advanced Mood Analytics',
-      'Custom Meditation Library',
-      'Export Journal Data',
-      'Priority Support',
-      'Premium Themes & Customization',
-      'Detailed Progress Reports',
-      'Personalized Wellness Plans'
-    ]
-  },
-  {
-    id: 'mindbloom_yearly',
-    name: 'Yearly Premium',
-    price: 79.99,
-    period: 'yearly',
-    popular: true,
-    savings: 'Save 33% • Best Value',
-    revenueCatId: 'mindbloom_yearly_7999',
-    stripeId: 'price_yearly_premium',
-    features: [
-      'Everything in Monthly Premium',
-      'AI Wellness Coach (Beta)',
-      'Advanced Pattern Recognition',
-      'Unlimited Cloud Backup',
-      'Family Sharing (up to 4 members)',
-      'Exclusive Content Library',
-      'Early Access to New Features',
-      'Personal Growth Challenges',
-      'Mood Prediction Insights',
-      'Custom Habit Tracking'
-    ]
-  }
-];
+// Re-export plans from PaymentContext for backward compatibility
+export const SUBSCRIPTION_PLANS = PAYMENT_PLANS;
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { purchasePlan: paymentPurchasePlan, restorePurchases: paymentRestorePurchases } = usePayments();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -90,116 +51,44 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   };
 
   const purchasePlan = async (planId: string): Promise<{ success: boolean; error?: string }> => {
-    if (Platform.OS === 'web') {
-      return handleWebPurchase(planId);
-    } else {
-      return handleMobilePurchase(planId);
+    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+    if (!plan) {
+      return { success: false, error: 'Plan not found' };
     }
-  };
 
-  const handleWebPurchase = async (planId: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
-      if (!plan) {
-        return { success: false, error: 'Plan not found' };
-      }
-
-      // Create Stripe checkout session
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          planId,
-          userId: user?.id,
-          priceId: plan.stripeId,
-        }),
-      });
-
-      const result = await response.json();
+      const result = await paymentPurchasePlan(plan);
       
-      if (result.error) {
-        return { success: false, error: result.error };
-      }
-
-      // For demo purposes, simulate successful purchase
-      if (result.url.includes('demo')) {
-        Alert.alert(
-          'Demo Mode',
-          'This is a demo. In production, you would be redirected to Stripe Checkout.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Simulate Success', 
-              onPress: async () => {
-                await simulateSuccessfulPurchase(planId, 'web');
-              }
-            }
-          ]
-        );
-        return { success: true };
-      }
-
-      // Redirect to Stripe checkout
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.location.href = result.url;
-      }
-      
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: 'Failed to create checkout session' };
-    }
-  };
-
-  const handleMobilePurchase = async (planId: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      // Check if RevenueCat is available (would be after export and native integration)
-      const hasRevenueCat = false; // This would be true after proper integration
-      
-      if (!hasRevenueCat) {
-        Alert.alert(
-          'RevenueCat Integration Required',
-          'To enable mobile purchases, please export this project and integrate RevenueCat SDK following the guide at: https://www.revenuecat.com/docs/getting-started/installation/expo\n\nFor now, you can simulate a purchase.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Simulate Purchase', 
-              onPress: async () => {
-                await simulateSuccessfulPurchase(planId, Platform.OS as 'ios' | 'android');
-              }
-            }
-          ]
-        );
-        return { success: true };
-      }
-
-      // This would be the actual RevenueCat implementation:
-      /*
-      const Purchases = require('react-native-purchases');
-      
-      try {
-        const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
-        const purchaserInfo = await Purchases.purchasePackage(plan.revenueCatId);
+      if (result.success) {
+        // For successful purchases, create subscription record
+        if (user && result.platform === 'mobile') {
+          await createSubscriptionRecord(planId, result.platform, result.transactionId);
+        }
         
-        if (purchaserInfo.customerInfo.entitlements.active.premium) {
-          await createSubscriptionRecord(planId, Platform.OS, purchaserInfo);
-          return { success: true };
-        }
-      } catch (e) {
-        if (!e.userCancelled) {
-          return { success: false, error: e.message };
-        }
+        Alert.alert(
+          'Purchase Successful! 🌟',
+          `Welcome to ${plan.name}! You now have access to all premium features.`,
+          [{ text: 'Get Started', style: 'default' }]
+        );
+        
+        // Reload subscription data
+        await loadSubscription();
       }
-      */
       
-      return { success: false, error: 'RevenueCat integration required for mobile purchases' };
+      return result;
     } catch (error) {
-      return { success: false, error: 'Purchase failed' };
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Purchase failed' 
+      };
     }
   };
 
-  const simulateSuccessfulPurchase = async (planId: string, platform: string) => {
+  const createSubscriptionRecord = async (
+    planId: string, 
+    platform: string, 
+    transactionId?: string
+  ) => {
     if (!user) return;
 
     try {
@@ -222,7 +111,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           current_period_start: new Date().toISOString(),
           current_period_end: endDate.toISOString(),
           platform: platform,
-          stripe_subscription_id: platform === 'web' ? `sim_${Date.now()}` : undefined,
+          stripe_subscription_id: platform === 'web' ? transactionId : undefined,
           revenuecat_user_id: platform !== 'web' ? user.id : undefined,
         })
         .select()
@@ -230,46 +119,31 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
       if (!error && data) {
         setSubscription(data);
-        Alert.alert(
-          'Welcome to Premium! 🌟',
-          `You now have access to all premium features. Enjoy your enhanced wellness journey!`,
-          [{ text: 'Get Started', style: 'default' }]
-        );
       }
     } catch (error) {
-      console.error('Error creating subscription:', error);
+      console.error('Error creating subscription record:', error);
     }
   };
 
   const restorePurchases = async (): Promise<{ success: boolean; error?: string }> => {
     try {
-      if (Platform.OS === 'web') {
-        // For web, just reload the subscription
-        await loadSubscription();
-        return { success: true };
-      }
-
-      // For mobile, this would use RevenueCat:
-      /*
-      const Purchases = require('react-native-purchases');
-      const purchaserInfo = await Purchases.restorePurchases();
+      const result = await paymentRestorePurchases();
       
-      if (purchaserInfo.customerInfo.entitlements.active.premium) {
+      if (result.success) {
         await loadSubscription();
-        return { success: true };
+        Alert.alert(
+          'Purchases Restored',
+          'Your subscription has been restored successfully.',
+          [{ text: 'OK' }]
+        );
       }
-      */
-
-      Alert.alert(
-        'Restore Purchases',
-        'RevenueCat integration required for mobile purchase restoration. For now, subscription data is automatically synced.',
-        [{ text: 'OK' }]
-      );
       
-      await loadSubscription();
-      return { success: true };
+      return result;
     } catch (error) {
-      return { success: false, error: 'Failed to restore purchases' };
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Restore failed' 
+      };
     }
   };
 
@@ -287,6 +161,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       if (error) throw error;
 
       setSubscription(null);
+      
       Alert.alert(
         'Subscription Cancelled',
         'Your subscription has been cancelled. You\'ll continue to have access to premium features until the end of your current billing period.',
@@ -295,7 +170,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       
       return { success: true };
     } catch (error) {
-      return { success: false, error: 'Failed to cancel subscription' };
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to cancel subscription' 
+      };
     }
   };
 

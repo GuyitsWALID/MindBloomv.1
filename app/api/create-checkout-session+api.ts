@@ -1,23 +1,21 @@
 export async function POST(request: Request) {
   try {
-    const { planId, userId, priceId } = await request.json();
+    const { planId, userId, userEmail, successUrl, cancelUrl } = await request.json();
     
     // Validate required fields
-    if (!planId || !userId) {
+    if (!planId || !userId || !userEmail) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
     // Plan pricing mapping
     const plans = {
       'mindbloom_monthly': {
-        price: 999, // $9.99 in cents
+        priceId: process.env.STRIPE_PRICE_ID_MONTHLY || 'price_monthly_premium',
         name: 'Mindbloom Monthly Premium',
-        priceId: 'price_monthly_premium'
       },
       'mindbloom_yearly': {
-        price: 7999, // $79.99 in cents
+        priceId: process.env.STRIPE_PRICE_ID_YEARLY || 'price_yearly_premium',
         name: 'Mindbloom Yearly Premium',
-        priceId: 'price_yearly_premium'
       }
     };
     
@@ -34,14 +32,14 @@ export async function POST(request: Request) {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
-        price: plan.priceId, // Use the actual Stripe Price ID
+        price: plan.priceId,
         quantity: 1,
       }],
       mode: 'subscription',
-      success_url: `${process.env.DOMAIN}/premium/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.DOMAIN}/premium`,
+      success_url: successUrl || `${process.env.DOMAIN}/premium/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl || `${process.env.DOMAIN}/premium`,
       client_reference_id: userId,
-      customer_email: userEmail, // You'd get this from your user data
+      customer_email: userEmail,
       metadata: {
         userId: userId,
         planId: planId,
@@ -54,9 +52,16 @@ export async function POST(request: Request) {
         },
       },
       allow_promotion_codes: true,
+      billing_address_collection: 'auto',
+      tax_id_collection: {
+        enabled: true,
+      },
     });
     
-    return Response.json({ url: session.url });
+    return Response.json({ 
+      url: session.url,
+      sessionId: session.id 
+    });
     */
     
     // For demo purposes, return a mock URL
