@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { PenTool, Sparkles, Calendar, Tag, TrendingUp, Search, Filter } from 'lucide-react-native';
+import { PenTool, Sparkles, Calendar, Tag, TrendingUp, Search, Filter, Download, FileText, Brain } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/lib/supabase';
 import { journalService } from '@/lib/database';
 import { JournalEntry } from '@/types/database';
+import { PremiumFeatureGate } from '@/components/PremiumFeatureGate';
 
 export default function JournalScreen() {
   const { user } = useAuth();
@@ -20,12 +22,29 @@ export default function JournalScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadJournalData();
+      checkPremiumStatus();
     }
   }, [user]);
+
+  const checkPremiumStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data } = await supabase
+        .from('stripe_user_subscriptions')
+        .select('subscription_status')
+        .maybeSingle();
+      
+      setIsPremium(data?.subscription_status === 'active' || data?.subscription_status === 'trialing');
+    } catch (error) {
+      console.error('Error checking premium status:', error);
+    }
+  };
 
   const loadJournalData = async () => {
     if (!user) return;
@@ -42,6 +61,44 @@ export default function JournalScreen() {
       console.error('Error loading journal data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const exportJournalData = async () => {
+    if (!user) return;
+
+    try {
+      const data = await journalService.exportJournalData(user.id);
+      
+      // Create CSV content
+      const csvContent = [
+        'Date,Title,Content,Tags,AI Insights',
+        ...data.map(entry => [
+          new Date(entry.created_at).toLocaleDateString(),
+          `"${entry.title.replace(/"/g, '""')}"`,
+          `"${entry.content.replace(/"/g, '""')}"`,
+          `"${entry.tags.join(', ')}"`,
+          `"${(entry.ai_insights || '').replace(/"/g, '""')}"`
+        ].join(','))
+      ].join('\n');
+
+      // For web, create download
+      if (typeof window !== 'undefined') {
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mindbloom-journal-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+
+      Alert.alert('Export Complete', 'Your journal data has been exported successfully.');
+    } catch (error) {
+      console.error('Error exporting journal data:', error);
+      Alert.alert('Export Failed', 'Failed to export journal data. Please try again.');
     }
   };
 
@@ -219,6 +276,21 @@ export default function JournalScreen() {
           <View style={styles.headerContainer}>
             <Text style={[styles.greeting, isDark && styles.darkText]}>Your Journal 📝</Text>
             <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>Reflect, grow, and discover patterns</Text>
+            
+            {/* Premium Features Row */}
+            <View style={styles.premiumFeaturesRow}>
+              <PremiumFeatureGate
+                feature="Export Journal Data"
+                description="Download your complete journal history as CSV for backup or analysis."
+                isActive={isPremium}
+                showUpgrade={false}
+              >
+                <TouchableOpacity style={[styles.exportButton, isDark && styles.darkExportButton]} onPress={exportJournalData}>
+                  <Download size={16} color="#3B82F6" />
+                  <Text style={[styles.exportButtonText, isDark && styles.darkExportText]}>Export</Text>
+                </TouchableOpacity>
+              </PremiumFeatureGate>
+            </View>
           </View>
 
           {/* Search and Filter */}
@@ -282,8 +354,8 @@ export default function JournalScreen() {
           {journalEntries.length > 0 && (
             <View style={[styles.insightsCard, isDark && styles.darkCard]}>
               <View style={styles.insightsHeader}>
-                <TrendingUp size={24} color="#8B5CF6" />
-                <Text style={[styles.insightsTitle, isDark && styles.darkText]}>Recent Patterns</Text>
+                <Brain size={24} color="#8B5CF6" />
+                <Text style={[styles.insightsTitle, isDark && styles.darkText]}>Recent AI Insights</Text>
               </View>
               <Text style={[styles.insightsText, isDark && styles.darkSubtitle]}>
                 {journalEntries[0]?.ai_insights || "Keep writing to discover patterns in your thoughts and emotions."}
@@ -408,6 +480,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
+    marginBottom: 16,
+  },
+  premiumFeaturesRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EBF8FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  darkExportButton: {
+    backgroundColor: '#1E3A8A',
+    borderColor: '#3B82F6',
+  },
+  exportButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: '#3B82F6',
+    marginLeft: 6,
+  },
+  darkExportText: {
+    color: '#60A5FA',
   },
   searchContainer: {
     paddingHorizontal: 24,
