@@ -48,12 +48,24 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     if (user) {
-      loadSubscription();
+      loadSubscription().then(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
     } else {
-      setSubscription(null);
-      setLoading(false);
+      if (mounted) {
+        setSubscription(null);
+        setLoading(false);
+      }
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [user]);
 
   const loadSubscription = async () => {
@@ -72,8 +84,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }
     } catch (error) {
       console.error('Error loading subscription:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -108,7 +118,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }
 
       // Redirect to Stripe checkout
-      window.location.href = url;
+      if (typeof window !== 'undefined') {
+        window.location.href = url;
+      }
       return { success: true };
     } catch (error) {
       return { success: false, error: 'Failed to create checkout session' };
