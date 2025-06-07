@@ -7,7 +7,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext'
-import { useFrameworkReady } from '@/hooks/useFrameworkReady'
 
 declare global {
   interface Window {
@@ -18,7 +17,6 @@ declare global {
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  useFrameworkReady();
   const [fontsLoaded, fontError] = useFonts({
     'Inter-Regular': Inter_400Regular,
     'Inter-Medium': Inter_500Medium,
@@ -29,7 +27,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
-      // Removed redundant window.frameworkReady?.(); call as useFrameworkReady hook handles this
+      // Signal framework ready only after fonts are loaded and splash screen is hidden
+      window.frameworkReady?.();
     }
   }, [fontsLoaded, fontError]);
 
