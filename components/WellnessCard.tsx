@@ -1,9 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Video as LucideIcon } from 'lucide-react-native';
 
 interface WellnessCardProps {
-  icon: LucideIcon;
+  icon: React.ComponentType<any>;
   title: string;
   subtitle: string;
   color: string;
