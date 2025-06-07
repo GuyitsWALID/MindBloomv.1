@@ -75,9 +75,11 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         .in('status', ['active', 'trial'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
-      if (!error && data) {
+      if (error) {
+        console.error('Error loading subscription:', error);
+      } else {
         setSubscription(data);
       }
     } catch (error) {

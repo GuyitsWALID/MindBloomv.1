@@ -50,9 +50,9 @@ export const subscriptionService = {
       .in('status', ['active', 'trial'])
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
+    if (error) throw error;
     return data;
   },
 
