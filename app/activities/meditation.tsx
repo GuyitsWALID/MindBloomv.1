@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -208,7 +208,11 @@ export default function MeditationScreen() {
             <View style={styles.placeholder} />
           </View>
 
-          <View style={styles.completedContainer}>
+          <ScrollView 
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.completedContainer}
+            showsVerticalScrollIndicator={false}
+          >
             <CheckCircle size={80} color="#10B981" />
             <Text style={[styles.completedTitle, isDark && styles.darkText]}>Well Done! 🧘‍♀️</Text>
             <Text style={[styles.completedText, isDark && styles.darkSubtitle]}>
@@ -231,7 +235,7 @@ export default function MeditationScreen() {
             <TouchableOpacity style={[styles.againButton, isDark && styles.darkAgainButton]} onPress={resetSession}>
               <Text style={[styles.againButtonText, isDark && styles.darkAgainButtonText]}>Meditate Again</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </LinearGradient>
       </SafeAreaView>
     );
@@ -253,7 +257,11 @@ export default function MeditationScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.content}>
+        <ScrollView 
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Duration Selector */}
           {!isPlaying && (
             <View style={styles.durationSelector}>
@@ -393,7 +401,7 @@ export default function MeditationScreen() {
             <Text style={[styles.tip, isDark && styles.darkSubtitle]}>• Consistency matters more than duration</Text>
             <Text style={[styles.tip, isDark && styles.darkSubtitle]}>• Be kind and patient with yourself</Text>
           </View>
-        </View>
+        </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -416,6 +424,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     paddingTop: 16,
+    paddingBottom: 0,
   },
   backButton: {
     padding: 8,
@@ -437,13 +446,17 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
-  content: {
+  scrollContainer: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   durationSelector: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 40,
   },
   durationTitle: {
     fontSize: 18,
@@ -615,7 +628,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
     marginBottom: 40,
   },
   soundButton: {
@@ -654,7 +666,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 24,
     borderRadius: 16,
-    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -675,10 +686,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   completedContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   completedTitle: {
     fontSize: 28,
