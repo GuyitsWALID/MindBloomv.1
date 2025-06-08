@@ -285,56 +285,66 @@ export default function GardenScreen() {
                       ]}
                       onPress={() => setSelectedPlant(selectedPlant === plant.id ? null : plant.id)}
                     >
-                      <View style={styles.plantEmoji}>
-                        <Text style={styles.plantEmojiText}>{getPlantEmoji(plant)}</Text>
+                      <View style={styles.plantHeader}>
+                        <View style={styles.plantEmoji}>
+                          <Text style={styles.plantEmojiText}>{getPlantEmoji(plant)}</Text>
+                        </View>
+                        <View style={styles.plantInfo}>
+                          <Text style={[styles.plantName, isDark && styles.darkText]}>{plant.name}</Text>
+                          <Text style={[styles.plantActivity, isDark && styles.darkSubtitle]}>
+                            {plant.associated_activity}
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={[styles.plantName, isDark && styles.darkText]}>{plant.name}</Text>
-                      <Text style={[styles.plantActivity, isDark && styles.darkSubtitle]}>
-                        {plant.associated_activity}
-                      </Text>
                       
-                      <View style={styles.healthBar}>
-                        <View 
-                          style={[
-                            styles.healthFill, 
-                            { 
-                              width: `${plant.health}%`,
-                              backgroundColor: getHealthColor(plant.health)
-                            }
-                          ]} 
-                        />
-                      </View>
-                      <Text style={[styles.healthText, isDark && styles.darkSubtitle]}>
-                        {plant.health}% vitality
-                      </Text>
+                      <View style={styles.plantStats}>
+                        <View style={styles.healthContainer}>
+                          <View style={styles.healthBar}>
+                            <View 
+                              style={[
+                                styles.healthFill, 
+                                { 
+                                  width: `${plant.health}%`,
+                                  backgroundColor: getHealthColor(plant.health)
+                                }
+                              ]} 
+                            />
+                          </View>
+                          <Text style={[styles.healthText, isDark && styles.darkSubtitle]}>
+                            {plant.health}% vitality
+                          </Text>
+                        </View>
 
-                      <View style={styles.plantMeta}>
-                        <Text style={[styles.plantAge, isDark && styles.darkSubtitle]}>
-                          {getDaysOld(plant.created_at)} days growing
-                        </Text>
-                        <Text style={styles.growthStage}>Stage {plant.growth_stage}/5</Text>
+                        <View style={styles.plantMeta}>
+                          <Text style={[styles.plantAge, isDark && styles.darkSubtitle]}>
+                            {getDaysOld(plant.created_at)} days growing
+                          </Text>
+                          <Text style={styles.growthStage}>Stage {plant.growth_stage}/5</Text>
+                        </View>
                       </View>
 
                       {/* Plant Actions */}
                       {selectedPlant === plant.id && (
                         <View style={styles.plantActions}>
-                          <TouchableOpacity 
-                            style={[styles.actionButton, isDark && styles.darkActionButton]}
-                            onPress={() => waterPlant(plant.id)}
-                          >
-                            <Droplets size={16} color="#3B82F6" />
-                            <Text style={[styles.actionText, isDark && styles.darkActionText]}>Water</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={[styles.actionButton, isDark && styles.darkActionButton]}
-                            onPress={() => handleSunlightPlant(plant.id)}
-                          >
-                            <Sun size={16} color="#F59E0B" />
-                            <Text style={[styles.actionText, isDark && styles.darkActionText]}>Sunlight</Text>
-                          </TouchableOpacity>
+                          <View style={styles.actionButtons}>
+                            <TouchableOpacity 
+                              style={[styles.actionButton, styles.waterButton]}
+                              onPress={() => waterPlant(plant.id)}
+                            >
+                              <Droplets size={18} color="#FFFFFF" />
+                              <Text style={styles.actionButtonText}>Water</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                              style={[styles.actionButton, styles.sunlightButton]}
+                              onPress={() => handleSunlightPlant(plant.id)}
+                            >
+                              <Sun size={18} color="#FFFFFF" />
+                              <Text style={styles.actionButtonText}>Sunlight</Text>
+                            </TouchableOpacity>
+                          </View>
                           
                           <Text style={[styles.actionHint, isDark && styles.darkActionHint]}>
-                            💧 Water: Complete wellness activities • ☀️ Sunlight: Consistent journaling
+                            💧 Water through wellness activities • ☀️ Sunlight through journaling
                           </Text>
                         </View>
                       )}
@@ -567,8 +577,8 @@ const styles = StyleSheet.create({
   },
   plantCard: {
     backgroundColor: '#FFFFFF',
-    width: '48%',
-    padding: 16,
+    width: '100%',
+    padding: 20,
     borderRadius: 16,
     marginBottom: 16,
     shadowColor: '#000',
@@ -581,47 +591,62 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#10B981',
   },
-  plantEmoji: {
+  plantHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  plantEmoji: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F0FDF4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
   },
   plantEmojiText: {
-    fontSize: 32,
+    fontSize: 28,
+  },
+  plantInfo: {
+    flex: 1,
   },
   plantName: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
-    textAlign: 'center',
     marginBottom: 4,
   },
   plantActivity: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
-    textAlign: 'center',
+  },
+  plantStats: {
+    marginBottom: 12,
+  },
+  healthContainer: {
     marginBottom: 12,
   },
   healthBar: {
-    height: 6,
+    height: 8,
     backgroundColor: '#E5E7EB',
-    borderRadius: 3,
+    borderRadius: 4,
     marginBottom: 8,
   },
   healthFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
   },
   healthText: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'Inter-Medium',
     color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 8,
   },
   plantMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   plantAge: {
     fontSize: 12,
@@ -632,42 +657,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter-Medium',
     color: '#10B981',
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   plantActions: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    marginBottom: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    flex: 0.48,
   },
-  darkActionButton: {
-    backgroundColor: '#4B5563',
+  waterButton: {
+    backgroundColor: '#3B82F6',
   },
-  actionText: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: '#4B5563',
-    marginLeft: 4,
+  sunlightButton: {
+    backgroundColor: '#F59E0B',
   },
-  darkActionText: {
-    color: '#D1D5DB',
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    marginLeft: 6,
   },
   actionHint: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: 'Inter-Regular',
     color: '#9CA3AF',
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 14,
+    lineHeight: 16,
   },
   darkActionHint: {
     color: '#6B7280',
