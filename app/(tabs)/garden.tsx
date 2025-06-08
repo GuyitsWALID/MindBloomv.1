@@ -96,15 +96,15 @@ export default function GardenScreen() {
       });
 
       Alert.alert(
-        'New Plant Added! 🌱',
-        `${randomName} has been planted in your garden. Complete ${randomActivity} activities to help it grow!`,
-        [{ text: 'Start Growing!', style: 'default' }]
+        'New Seed Planted! 🌱',
+        `${randomName} has been planted in your wellness garden. This plant represents your commitment to ${randomActivity}. Nurture it through consistent practice and watch your mental well-being flourish!`,
+        [{ text: 'Begin Growing!', style: 'default' }]
       );
 
       loadGardenData();
     } catch (error) {
       console.error('Error creating plant:', error);
-      Alert.alert('Error', 'Failed to create new plant. Please try again.');
+      Alert.alert('Error', 'Failed to plant new seed. Please try again.');
     }
   };
 
@@ -128,8 +128,8 @@ export default function GardenScreen() {
       }
       
       Alert.alert(
-        'Plant Watered! 💧',
-        `Your ${updatedPlant.name} is thriving! Health: ${updatedPlant.health}%, Stage: ${updatedPlant.growth_stage}/5`,
+        'Plant Nurtured! 💧',
+        `Your ${updatedPlant.name} feels the positive energy from your wellness activities! Health: ${updatedPlant.health}%, Growth Stage: ${updatedPlant.growth_stage}/5. Each drop of care strengthens your mental resilience.`,
         [{ text: 'Keep Growing!', style: 'default' }]
       );
 
@@ -137,6 +137,38 @@ export default function GardenScreen() {
     } catch (error) {
       console.error('Error watering plant:', error);
       Alert.alert('Error', 'Failed to water plant. Please try again.');
+    }
+  };
+
+  const handleSunlightPlant = async (plantId: string) => {
+    try {
+      const updatedPlant = await plantService.sunlightPlant(plantId);
+      
+      // Animate the plant growth
+      const plantIndex = plants.findIndex(p => p.id === plantId);
+      if (plantIndex !== -1) {
+        Animated.sequence([
+          Animated.spring(animatedValues[plantIndex], {
+            toValue: 1.3,
+            useNativeDriver: true,
+          }),
+          Animated.spring(animatedValues[plantIndex], {
+            toValue: 1,
+            useNativeDriver: true,
+          })
+        ]).start();
+      }
+      
+      Alert.alert(
+        'Sunlight Shared! ☀️',
+        `Your ${updatedPlant.name} basks in the warm glow of your consistent journaling! Health: ${updatedPlant.health}%, Growth Stage: ${updatedPlant.growth_stage}/5. Your reflective practice illuminates the path to inner growth.`,
+        [{ text: 'Continue Reflecting!', style: 'default' }]
+      );
+
+      loadGardenData();
+    } catch (error) {
+      console.error('Error giving sunlight to plant:', error);
+      Alert.alert('Error', 'Failed to give sunlight to plant. Please try again.');
     }
   };
 
@@ -163,19 +195,19 @@ export default function GardenScreen() {
   };
 
   const achievements = [
-    { title: 'Green Thumb', description: 'Grew your first plant', earned: plants.length > 0, icon: '🌱' },
-    { title: 'Garden Keeper', description: 'Maintained 3 plants for a week', earned: plants.length >= 3, icon: '🌿' },
-    { title: 'Bloom Master', description: 'Full grown flower achieved', earned: plants.some(p => p.type === 'flower' && p.growth_stage === 5), icon: '🌸' },
-    { title: 'Forest Grower', description: 'Plant 5 different species', earned: plants.length >= 5, icon: '🌳' },
-    { title: 'Zen Gardener', description: 'Perfect health on all plants', earned: plants.length > 0 && plants.every(p => p.health === 100), icon: '🧘‍♀️' },
-    { title: 'Growth Expert', description: 'Reach stage 5 with any plant', earned: plants.some(p => p.growth_stage === 5), icon: '🏆' },
+    { title: 'Seed Planter', description: 'Planted your first seed of intention', earned: plants.length > 0, icon: '🌱' },
+    { title: 'Garden Tender', description: 'Nurtured 3 aspects of wellness for a week', earned: plants.length >= 3, icon: '🌿' },
+    { title: 'Bloom Cultivator', description: 'Witnessed the full flowering of growth', earned: plants.some(p => p.type === 'flower' && p.growth_stage === 5), icon: '🌸' },
+    { title: 'Ecosystem Builder', description: 'Created a diverse wellness ecosystem', earned: plants.length >= 5, icon: '🌳' },
+    { title: 'Harmony Keeper', description: 'Achieved perfect balance in all areas', earned: plants.length > 0 && plants.every(p => p.health === 100), icon: '🧘‍♀️' },
+    { title: 'Master Gardener', description: 'Reached full maturity in personal growth', earned: plants.some(p => p.growth_stage === 5), icon: '🏆' },
   ];
 
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, isDark && styles.darkContainer]}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDark && styles.darkText]}>Loading your garden...</Text>
+          <Text style={[styles.loadingText, isDark && styles.darkText]}>Loading your wellness garden...</Text>
         </View>
       </SafeAreaView>
     );
@@ -190,28 +222,28 @@ export default function GardenScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={[styles.greeting, isDark && styles.darkText]}>Your Mind Garden 🌻</Text>
-            <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>Watch your wellness bloom</Text>
+            <Text style={[styles.greeting, isDark && styles.darkText]}>Your Wellness Garden 🌻</Text>
+            <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>Where inner growth takes root and flourishes</Text>
           </View>
 
           {/* Garden Overview */}
           <View style={[styles.overviewCard, isDark && styles.darkCard]}>
             <View style={styles.overviewHeader}>
               <Leaf size={24} color="#10B981" />
-              <Text style={[styles.overviewTitle, isDark && styles.darkText]}>Garden Health</Text>
+              <Text style={[styles.overviewTitle, isDark && styles.darkText]}>Garden Vitality</Text>
             </View>
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{gardenStats?.averageHealth || 0}%</Text>
-                <Text style={[styles.statLabel, isDark && styles.darkSubtitle]}>Overall Health</Text>
+                <Text style={[styles.statLabel, isDark && styles.darkSubtitle]}>Wellness Health</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{gardenStats?.totalPlants || 0}</Text>
-                <Text style={[styles.statLabel, isDark && styles.darkSubtitle]}>Plants Growing</Text>
+                <Text style={[styles.statLabel, isDark && styles.darkSubtitle]}>Growth Areas</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{gardenStats?.daysActive || 0}</Text>
-                <Text style={[styles.statLabel, isDark && styles.darkSubtitle]}>Days Active</Text>
+                <Text style={[styles.statLabel, isDark && styles.darkSubtitle]}>Days Nurturing</Text>
               </View>
             </View>
           </View>
@@ -219,18 +251,18 @@ export default function GardenScreen() {
           {/* Garden Grid */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Your Plants</Text>
+              <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Your Growing Intentions</Text>
               <TouchableOpacity style={styles.addPlantButton} onPress={createNewPlant}>
                 <Sparkles size={16} color="#FFFFFF" />
-                <Text style={styles.addPlantText}>New Plant</Text>
+                <Text style={styles.addPlantText}>Plant New Seed</Text>
               </TouchableOpacity>
             </View>
             
             {plants.length === 0 ? (
               <View style={[styles.emptyGarden, isDark && styles.darkCard]}>
-                <Text style={[styles.emptyGardenText, isDark && styles.darkText]}>Your garden is empty</Text>
+                <Text style={[styles.emptyGardenText, isDark && styles.darkText]}>Your wellness garden awaits</Text>
                 <Text style={[styles.emptyGardenSubtext, isDark && styles.darkSubtitle]}>
-                  Plant your first seed to start growing!
+                  Plant your first seed of intention and begin cultivating the garden of your mind. Each plant represents a commitment to your mental well-being and personal growth.
                 </Text>
               </View>
             ) : (
@@ -273,12 +305,12 @@ export default function GardenScreen() {
                         />
                       </View>
                       <Text style={[styles.healthText, isDark && styles.darkSubtitle]}>
-                        {plant.health}% healthy
+                        {plant.health}% vitality
                       </Text>
 
                       <View style={styles.plantMeta}>
                         <Text style={[styles.plantAge, isDark && styles.darkSubtitle]}>
-                          {getDaysOld(plant.created_at)} days old
+                          {getDaysOld(plant.created_at)} days growing
                         </Text>
                         <Text style={styles.growthStage}>Stage {plant.growth_stage}/5</Text>
                       </View>
@@ -293,10 +325,17 @@ export default function GardenScreen() {
                             <Droplets size={16} color="#3B82F6" />
                             <Text style={[styles.actionText, isDark && styles.darkActionText]}>Water</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity style={[styles.actionButton, isDark && styles.darkActionButton]}>
+                          <TouchableOpacity 
+                            style={[styles.actionButton, isDark && styles.darkActionButton]}
+                            onPress={() => handleSunlightPlant(plant.id)}
+                          >
                             <Sun size={16} color="#F59E0B" />
                             <Text style={[styles.actionText, isDark && styles.darkActionText]}>Sunlight</Text>
                           </TouchableOpacity>
+                          
+                          <Text style={[styles.actionHint, isDark && styles.darkActionHint]}>
+                            💧 Water: Complete wellness activities • ☀️ Sunlight: Consistent journaling
+                          </Text>
                         </View>
                       )}
                     </TouchableOpacity>
@@ -308,7 +347,7 @@ export default function GardenScreen() {
 
           {/* Achievements */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Garden Achievements</Text>
+            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Growth Milestones</Text>
             <View style={styles.achievementsGrid}>
               {achievements.map((achievement, index) => (
                 <View 
@@ -345,32 +384,32 @@ export default function GardenScreen() {
 
           {/* Care Tips */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Garden Care Tips</Text>
+            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Wisdom for Growth</Text>
             <View style={[styles.tipsCard, isDark && styles.darkCard]}>
               <View style={styles.tipItem}>
                 <Droplets size={20} color="#3B82F6" />
                 <View style={styles.tipContent}>
-                  <Text style={[styles.tipTitle, isDark && styles.darkText]}>Daily Watering</Text>
+                  <Text style={[styles.tipTitle, isDark && styles.darkText]}>Nourishing Waters</Text>
                   <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
-                    Complete wellness activities to keep plants healthy and thriving
+                    Complete wellness activities to water your plants. Each meditation, exercise, or mindful practice sends life-giving energy to your garden, representing how consistent self-care nourishes your mental health.
                   </Text>
                 </View>
               </View>
               <View style={styles.tipItem}>
                 <Sun size={20} color="#F59E0B" />
                 <View style={styles.tipContent}>
-                  <Text style={[styles.tipTitle, isDark && styles.darkText]}>Positive Energy</Text>
+                  <Text style={[styles.tipTitle, isDark && styles.darkText]}>Illuminating Sunlight</Text>
                   <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
-                    Gratitude and mindfulness provide sunlight for emotional growth
+                    Regular journaling provides sunlight for growth. Your written reflections illuminate patterns, insights, and wisdom, helping your inner garden flourish through the power of self-awareness and mindful observation.
                   </Text>
                 </View>
               </View>
               <View style={styles.tipItem}>
                 <TrendingUp size={20} color="#10B981" />
                 <View style={styles.tipContent}>
-                  <Text style={[styles.tipTitle, isDark && styles.darkText]}>Consistent Growth</Text>
+                  <Text style={[styles.tipTitle, isDark && styles.darkText]}>Steady Growth</Text>
                   <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
-                    Regular journaling and reflection help plants reach new stages
+                    Like real plants, your wellness garden thrives on consistency rather than intensity. Small, daily acts of self-care create lasting transformation, building resilience and inner strength that grows stronger with time.
                   </Text>
                 </View>
               </View>
@@ -519,6 +558,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
     textAlign: 'center',
+    lineHeight: 20,
   },
   plantsGrid: {
     flexDirection: 'row',
@@ -594,8 +634,6 @@ const styles = StyleSheet.create({
     color: '#10B981',
   },
   plantActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
@@ -604,10 +642,12 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     backgroundColor: '#F9FAFB',
     borderRadius: 8,
+    marginBottom: 8,
   },
   darkActionButton: {
     backgroundColor: '#4B5563',
@@ -620,6 +660,17 @@ const styles = StyleSheet.create({
   },
   darkActionText: {
     color: '#D1D5DB',
+  },
+  actionHint: {
+    fontSize: 10,
+    fontFamily: 'Inter-Regular',
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 14,
+  },
+  darkActionHint: {
+    color: '#6B7280',
   },
   achievementsGrid: {
     flexDirection: 'row',

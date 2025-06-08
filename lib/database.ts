@@ -374,6 +374,35 @@ export const plantService = {
     return data;
   },
 
+  async sunlightPlant(id: string) {
+    const { data: plant } = await supabase
+      .from('plants')
+      .select('health, growth_stage')
+      .eq('id', id)
+      .single();
+    
+    if (!plant) throw new Error('Plant not found');
+    
+    const newHealth = Math.min(100, plant.health + 15);
+    const newGrowthStage = newHealth === 100 && plant.growth_stage < 5 
+      ? plant.growth_stage + 1 
+      : plant.growth_stage;
+    
+    const { data, error } = await supabase
+      .from('plants')
+      .update({ 
+        health: newHealth, 
+        growth_stage: newGrowthStage,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
   async getGardenStats(userId: string) {
     const { data, error } = await supabase
       .from('plants')
