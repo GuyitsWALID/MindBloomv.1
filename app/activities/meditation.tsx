@@ -1,12 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Play, Pause, RotateCcw, CircleCheck as CheckCircle, ArrowLeft, Volume2, VolumeX } from 'lucide-react-native';
+import { Play, Pause, RotateCcw, CircleCheck as CheckCircle, ArrowLeft, Volume2, VolumeX, Music } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { wellnessService } from '@/lib/database';
+
+// Audio tracks for meditation
+const MEDITATION_TRACKS = [
+  {
+    id: 'nature_sounds',
+    name: 'Forest Sounds',
+    description: 'Gentle forest ambiance with birds and flowing water',
+    icon: '🌲',
+    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav' // Placeholder - would be actual meditation audio
+  },
+  {
+    id: 'ocean_waves',
+    name: 'Ocean Waves',
+    description: 'Calming ocean waves for deep relaxation',
+    icon: '🌊',
+    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
+  },
+  {
+    id: 'rain_sounds',
+    name: 'Gentle Rain',
+    description: 'Soft rainfall for peaceful meditation',
+    icon: '🌧️',
+    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
+  },
+  {
+    id: 'singing_bowls',
+    name: 'Tibetan Bowls',
+    description: 'Traditional singing bowls for mindfulness',
+    icon: '🎵',
+    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
+  },
+  {
+    id: 'silence',
+    name: 'Silent Session',
+    description: 'Pure silence for focused meditation',
+    icon: '🤫',
+    url: null
+  }
+];
 
 export default function MeditationScreen() {
   const { user } = useAuth();
@@ -17,6 +56,9 @@ export default function MeditationScreen() {
   const [breathAnimation] = useState(new Animated.Value(1));
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [selectedDuration, setSelectedDuration] = useState(300);
+  const [selectedTrack, setSelectedTrack] = useState(MEDITATION_TRACKS[0]);
+  const [showTrackSelector, setShowTrackSelector] = useState(false);
+  const [audio, setAudio] = useState<any>(null);
 
   const durations = [
     { label: '3 min', value: 180 },
@@ -34,6 +76,7 @@ export default function MeditationScreen() {
           if (prev <= 1) {
             setIsPlaying(false);
             setIsCompleted(true);
+            stopAudio();
             completeActivity();
             return 0;
           }
@@ -48,8 +91,13 @@ export default function MeditationScreen() {
   useEffect(() => {
     if (isPlaying) {
       startBreathingAnimation();
+      if (soundEnabled && selectedTrack.url) {
+        playAudio();
+      }
+    } else {
+      stopAudio();
     }
-  }, [isPlaying]);
+  }, [isPlaying, soundEnabled, selectedTrack]);
 
   const startBreathingAnimation = () => {
     const breatheIn = () => {
@@ -73,6 +121,29 @@ export default function MeditationScreen() {
     };
 
     breatheIn();
+  };
+
+  const playAudio = async () => {
+    if (Platform.OS === 'web' && selectedTrack.url) {
+      try {
+        const audioElement = new Audio(selectedTrack.url);
+        audioElement.loop = true;
+        audioElement.volume = 0.3;
+        await audioElement.play();
+        setAudio(audioElement);
+      } catch (error) {
+        console.log('Audio playback not available in browser preview');
+      }
+    }
+    // For mobile, you would use expo-av here
+  };
+
+  const stopAudio = () => {
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      setAudio(null);
+    }
   };
 
   const completeActivity = async () => {
@@ -101,6 +172,7 @@ export default function MeditationScreen() {
     setTimeRemaining(selectedDuration);
     setIsCompleted(false);
     breathAnimation.setValue(1);
+    stopAudio();
   };
 
   const togglePlayPause = () => {
@@ -111,6 +183,13 @@ export default function MeditationScreen() {
     if (!isPlaying) {
       setSelectedDuration(duration);
       setTimeRemaining(duration);
+    }
+  };
+
+  const selectTrack = (track: typeof MEDITATION_TRACKS[0]) => {
+    if (!isPlaying) {
+      setSelectedTrack(track);
+      setShowTrackSelector(false);
     }
   };
 
@@ -133,7 +212,7 @@ export default function MeditationScreen() {
             <CheckCircle size={80} color="#10B981" />
             <Text style={[styles.completedTitle, isDark && styles.darkText]}>Well Done! 🧘‍♀️</Text>
             <Text style={[styles.completedText, isDark && styles.darkSubtitle]}>
-              You've completed your {Math.round(selectedDuration / 60)}-minute meditation session. Your mind garden is growing stronger!
+              You've completed your {Math.round(selectedDuration / 60)}-minute meditation session with {selectedTrack.name}. Your mind garden is growing stronger!
             </Text>
             
             <View style={[styles.benefitsCard, isDark && styles.darkCard]}>
@@ -203,6 +282,51 @@ export default function MeditationScreen() {
             </View>
           )}
 
+          {/* Audio Track Selector */}
+          {!isPlaying && (
+            <View style={styles.audioSelector}>
+              <Text style={[styles.audioTitle, isDark && styles.darkText]}>Choose Your Soundscape</Text>
+              <TouchableOpacity 
+                style={[styles.selectedTrack, isDark && styles.darkSelectedTrack]}
+                onPress={() => setShowTrackSelector(!showTrackSelector)}
+              >
+                <View style={styles.trackInfo}>
+                  <Text style={styles.trackEmoji}>{selectedTrack.icon}</Text>
+                  <View style={styles.trackDetails}>
+                    <Text style={[styles.trackName, isDark && styles.darkText]}>{selectedTrack.name}</Text>
+                    <Text style={[styles.trackDescription, isDark && styles.darkSubtitle]}>{selectedTrack.description}</Text>
+                  </View>
+                </View>
+                <Music size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+              </TouchableOpacity>
+
+              {showTrackSelector && (
+                <View style={[styles.trackList, isDark && styles.darkCard]}>
+                  {MEDITATION_TRACKS.map((track) => (
+                    <TouchableOpacity
+                      key={track.id}
+                      style={[
+                        styles.trackOption,
+                        selectedTrack.id === track.id && styles.activeTrackOption
+                      ]}
+                      onPress={() => selectTrack(track)}
+                    >
+                      <Text style={styles.trackEmoji}>{track.icon}</Text>
+                      <View style={styles.trackDetails}>
+                        <Text style={[styles.trackName, isDark && styles.darkText]}>{track.name}</Text>
+                        <Text style={[styles.trackDescription, isDark && styles.darkSubtitle]}>{track.description}</Text>
+                      </View>
+                      {selectedTrack.id === track.id && (
+                        <CheckCircle size={16} color="#10B981" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Timer Circle */}
           <View style={styles.timerContainer}>
             <Animated.View 
               style={[
@@ -220,6 +344,7 @@ export default function MeditationScreen() {
             </Animated.View>
           </View>
 
+          {/* Instructions */}
           <View style={styles.instructionsContainer}>
             <Text style={[styles.instructionTitle, isDark && styles.darkText]}>
               {isPlaying ? 'Follow your breath' : 'Ready to begin?'}
@@ -232,6 +357,7 @@ export default function MeditationScreen() {
             </Text>
           </View>
 
+          {/* Controls */}
           <View style={styles.controlsContainer}>
             <TouchableOpacity 
               style={[styles.soundButton, isDark && styles.darkSoundButton]}
@@ -258,6 +384,7 @@ export default function MeditationScreen() {
             <View style={styles.placeholder} />
           </View>
 
+          {/* Tips */}
           <View style={[styles.tipsContainer, isDark && styles.darkCard]}>
             <Text style={[styles.tipsTitle, isDark && styles.darkText]}>💡 Meditation Tips</Text>
             <Text style={[styles.tip, isDark && styles.darkSubtitle]}>• It's normal for your mind to wander</Text>
@@ -312,7 +439,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    alignItems: 'center',
     paddingHorizontal: 24,
   },
   durationSelector: {
@@ -323,7 +449,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   durationButtons: {
     flexDirection: 'row',
@@ -356,10 +482,81 @@ const styles = StyleSheet.create({
   activeDurationText: {
     color: '#FFFFFF',
   },
-  timerContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  audioSelector: {
+    marginBottom: 40,
+  },
+  audioTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  selectedTrack: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  darkSelectedTrack: {
+    backgroundColor: '#374151',
+  },
+  trackInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  trackEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  trackDetails: {
+    flex: 1,
+  },
+  trackName: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  trackDescription: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+  },
+  trackList: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  darkCard: {
+    backgroundColor: '#374151',
+  },
+  trackOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  activeTrackOption: {
+    backgroundColor: '#F0FDF4',
+  },
+  timerContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
   },
   breathingCircle: {
     width: 200,
@@ -404,7 +601,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: 'center',
   },
   instructionText: {
@@ -455,9 +652,8 @@ const styles = StyleSheet.create({
   },
   tipsContainer: {
     backgroundColor: '#FFFFFF',
-    padding: 20,
+    padding: 24,
     borderRadius: 16,
-    width: '100%',
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -465,20 +661,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  darkCard: {
-    backgroundColor: '#374151',
-  },
   tipsTitle: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   tip: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
     marginBottom: 8,
+    lineHeight: 20,
   },
   completedContainer: {
     flex: 1,
@@ -525,6 +719,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
     marginBottom: 8,
+    lineHeight: 20,
   },
   continueButton: {
     backgroundColor: '#10B981',
