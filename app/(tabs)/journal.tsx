@@ -1,13 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { PenTool, Sparkles, Calendar, Tag, Search, Filter, FileText, Brain, Cloud } from 'lucide-react-native';
+import { PenTool, Sparkles, Calendar, Tag, Search, Filter, FileText, Brain, Cloud, Mic, MicOff, Volume2, VolumeX } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { journalService } from '@/lib/database';
 import { JournalEntry } from '@/types/database';
+
+// Voice recognition interface for web
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onstart: () => void;
+  onend: () => void;
+}
+
+interface SpeechRecognitionEvent {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+  message: string;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+    speechSynthesis: SpeechSynthesis;
+  }
+}
 
 export default function JournalScreen() {
   const { user } = useAuth();
@@ -21,12 +71,51 @@ export default function JournalScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  
+  // Voice features
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   useEffect(() => {
     if (user) {
       loadJournalData();
     }
   }, [user]);
+
+  useEffect(() => {
+    // Initialize speech recognition for web
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognitionInstance = new SpeechRecognition();
+        recognitionInstance.continuous = false;
+        recognitionInstance.interimResults = false;
+        recognitionInstance.lang = 'en-US';
+
+        recognitionInstance.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          setCurrentEntry(prev => prev + ' ' + transcript);
+          setIsListening(false);
+        };
+
+        recognitionInstance.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+          Alert.alert('Voice Recognition Error', 'Please try again or type your message.');
+        };
+
+        recognitionInstance.onend = () => {
+          setIsListening(false);
+        };
+
+        setRecognition(recognitionInstance);
+        setIsVoiceSupported(true);
+      }
+    }
+  }, []);
 
   const loadJournalData = async () => {
     if (!user) return;
@@ -43,6 +132,53 @@ export default function JournalScreen() {
       console.error('Error loading journal data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startVoiceRecognition = () => {
+    if (!recognition || !isVoiceSupported) {
+      Alert.alert('Voice Not Supported', 'Voice recognition is not available on this device.');
+      return;
+    }
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognition.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Error starting voice recognition:', error);
+        Alert.alert('Voice Error', 'Could not start voice recognition. Please try again.');
+      }
+    }
+  };
+
+  const speakText = (text: string) => {
+    if (!voiceEnabled || Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    if (window.speechSynthesis) {
+      // Stop any current speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.8;
+      utterance.pitch = 1;
+      utterance.volume = 0.8;
+      
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const stopSpeaking = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
     }
   };
 
@@ -140,6 +276,11 @@ export default function JournalScreen() {
         ai_insights: insight
       });
       
+      // Speak the AI insight if voice is enabled
+      if (voiceEnabled) {
+        speakText(insight);
+      }
+      
       Alert.alert(
         'Entry Saved! 🌱',
         `AI Insight: ${insight}`,
@@ -210,11 +351,28 @@ export default function JournalScreen() {
               <Text style={[styles.backButtonText, isDark && styles.darkText]}>Cancel</Text>
             </TouchableOpacity>
             <Text style={[styles.headerTitle, isDark && styles.darkText]}>New Entry</Text>
-            <TouchableOpacity onPress={saveEntry} disabled={isAnalyzing} style={styles.saveButton}>
-              <Text style={[styles.saveButtonText, isAnalyzing && styles.disabledText]}>
-                {isAnalyzing ? 'Saving...' : 'Save'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              {isSpeaking && (
+                <TouchableOpacity onPress={stopSpeaking} style={styles.voiceButton}>
+                  <VolumeX size={20} color="#EF4444" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity 
+                onPress={() => setVoiceEnabled(!voiceEnabled)} 
+                style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
+              >
+                {voiceEnabled ? (
+                  <Volume2 size={20} color="#10B981" />
+                ) : (
+                  <VolumeX size={20} color="#9CA3AF" />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={saveEntry} disabled={isAnalyzing} style={styles.saveButton}>
+                <Text style={[styles.saveButtonText, isAnalyzing && styles.disabledText]}>
+                  {isAnalyzing ? 'Saving...' : 'Save'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView style={styles.writeContainer}>
@@ -226,16 +384,37 @@ export default function JournalScreen() {
               onChangeText={setEntryTitle}
             />
             
-            <TextInput
-              style={[styles.contentInput, isDark && styles.darkInput]}
-              placeholder="What's on your mind today?"
-              placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-              value={currentEntry}
-              onChangeText={setCurrentEntry}
-              multiline
-              textAlignVertical="top"
-              autoFocus
-            />
+            <View style={styles.contentContainer}>
+              <TextInput
+                style={[styles.contentInput, isDark && styles.darkInput]}
+                placeholder="What's on your mind today? (type or speak)"
+                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                value={currentEntry}
+                onChangeText={setCurrentEntry}
+                multiline
+                textAlignVertical="top"
+                autoFocus
+              />
+              
+              {isVoiceSupported && (
+                <TouchableOpacity 
+                  style={[styles.micButton, isListening && styles.micButtonActive]}
+                  onPress={startVoiceRecognition}
+                >
+                  {isListening ? (
+                    <MicOff size={24} color="#FFFFFF" />
+                  ) : (
+                    <Mic size={24} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            {isListening && (
+              <Text style={[styles.listeningText, isDark && styles.darkSubtitle]}>
+                🎤 Listening... Speak your thoughts
+              </Text>
+            )}
             
             <View style={[styles.writingTips, isDark && styles.darkCard]}>
               <Text style={[styles.tipsTitle, isDark && styles.darkText]}>💡 Writing Prompts</Text>
@@ -773,6 +952,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  voiceButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  voiceButtonDisabled: {
+    backgroundColor: 'rgba(156, 163, 175, 0.1)',
   },
   saveButton: {
     padding: 8,
@@ -800,12 +994,43 @@ const styles = StyleSheet.create({
   darkInput: {
     color: '#F9FAFB',
   },
+  contentContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
   contentInput: {
+    flex: 1,
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#1F2937',
     lineHeight: 24,
     minHeight: 300,
+  },
+  micButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    marginTop: 8,
+  },
+  micButtonActive: {
+    backgroundColor: '#EF4444',
+  },
+  listeningText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#10B981',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
   },
   writingTips: {
     backgroundColor: '#FEF3C7',

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Brain, Sparkles, MessageCircle, Heart, Zap, Sun, Moon } from 'lucide-react-native';
+import { Brain, Sparkles, MessageCircle, Heart, Zap, Sun, Moon, Mic, MicOff, Volume2, VolumeX } from 'lucide-react-native';
 import { MoodSelector } from '@/components/MoodSelector';
 import { WellnessCard } from '@/components/WellnessCard';
 import { AIInsight } from '@/components/AIInsight';
@@ -10,6 +10,56 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { moodService, wellnessService, analyticsService } from '@/lib/database';
 import { router } from 'expo-router';
+
+// Voice recognition interface for web
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onstart: () => void;
+  onend: () => void;
+}
+
+interface SpeechRecognitionEvent {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+  message: string;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+    speechSynthesis: SpeechSynthesis;
+  }
+}
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -21,12 +71,51 @@ export default function HomeScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Voice features
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   useEffect(() => {
     if (user) {
       loadDashboardData();
     }
   }, [user]);
+
+  useEffect(() => {
+    // Initialize speech recognition for web
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognitionInstance = new SpeechRecognition();
+        recognitionInstance.continuous = false;
+        recognitionInstance.interimResults = false;
+        recognitionInstance.lang = 'en-US';
+
+        recognitionInstance.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          setMoodInput(prev => prev + ' ' + transcript);
+          setIsListening(false);
+        };
+
+        recognitionInstance.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+          Alert.alert('Voice Recognition Error', 'Please try again or type your message.');
+        };
+
+        recognitionInstance.onend = () => {
+          setIsListening(false);
+        };
+
+        setRecognition(recognitionInstance);
+        setIsVoiceSupported(true);
+      }
+    }
+  }, []);
 
   const loadDashboardData = async () => {
     if (!user) return;
@@ -38,6 +127,53 @@ export default function HomeScreen() {
       console.error('Error loading dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startVoiceRecognition = () => {
+    if (!recognition || !isVoiceSupported) {
+      Alert.alert('Voice Not Supported', 'Voice recognition is not available on this device.');
+      return;
+    }
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognition.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Error starting voice recognition:', error);
+        Alert.alert('Voice Error', 'Could not start voice recognition. Please try again.');
+      }
+    }
+  };
+
+  const speakText = (text: string) => {
+    if (!voiceEnabled || Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    if (window.speechSynthesis) {
+      // Stop any current speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.8;
+      utterance.pitch = 1;
+      utterance.volume = 0.8;
+      
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const stopSpeaking = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
     }
   };
 
@@ -152,6 +288,11 @@ export default function HomeScreen() {
       setCurrentMood(detectedMood);
       setAiInsight(insight);
       
+      // Speak the AI insight if voice is enabled
+      if (voiceEnabled) {
+        speakText(insight);
+      }
+      
       // Reload dashboard data
       loadDashboardData();
       
@@ -248,21 +389,61 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Enhanced Mood Input */}
+          {/* Enhanced Mood Input with Voice */}
           <View style={[styles.moodInputContainer, isDark && styles.darkCard]}>
             <View style={styles.inputHeader}>
               <Brain size={24} color="#10B981" />
               <Text style={[styles.inputTitle, isDark && styles.darkText]}>Tell me about your day</Text>
+              <View style={styles.voiceControls}>
+                {isSpeaking && (
+                  <TouchableOpacity onPress={stopSpeaking} style={styles.voiceButton}>
+                    <VolumeX size={20} color="#EF4444" />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity 
+                  onPress={() => setVoiceEnabled(!voiceEnabled)} 
+                  style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
+                >
+                  {voiceEnabled ? (
+                    <Volume2 size={20} color="#10B981" />
+                  ) : (
+                    <VolumeX size={20} color="#9CA3AF" />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-            <TextInput
-              style={[styles.moodInput, isDark && styles.darkInput]}
-              placeholder="I'm feeling..."
-              placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-              value={moodInput}
-              onChangeText={setMoodInput}
-              multiline
-              numberOfLines={3}
-            />
+            
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.moodInput, isDark && styles.darkInput]}
+                placeholder="I'm feeling... (type or speak)"
+                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                value={moodInput}
+                onChangeText={setMoodInput}
+                multiline
+                numberOfLines={3}
+              />
+              
+              {isVoiceSupported && (
+                <TouchableOpacity 
+                  style={[styles.micButton, isListening && styles.micButtonActive]}
+                  onPress={startVoiceRecognition}
+                >
+                  {isListening ? (
+                    <MicOff size={24} color="#FFFFFF" />
+                  ) : (
+                    <Mic size={24} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            {isListening && (
+              <Text style={[styles.listeningText, isDark && styles.darkSubtitle]}>
+                🎤 Listening... Speak now
+              </Text>
+            )}
+            
             <TouchableOpacity 
               style={[styles.analyzeButton, isAnalyzing && styles.analyzingButton]} 
               onPress={analyzeMood}
@@ -406,15 +587,35 @@ const styles = StyleSheet.create({
   inputHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
   inputTitle: {
     fontSize: 18,
     fontFamily: 'Inter-SemiBold',
     color: '#1F2937',
+    flex: 1,
     marginLeft: 12,
   },
+  voiceControls: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  voiceButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  voiceButtonDisabled: {
+    backgroundColor: 'rgba(156, 163, 175, 0.1)',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+  },
   moodInput: {
+    flex: 1,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 12,
@@ -424,12 +625,35 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     minHeight: 80,
     textAlignVertical: 'top',
-    marginBottom: 16,
   },
   darkInput: {
     borderColor: '#4B5563',
     backgroundColor: '#1F2937',
     color: '#F9FAFB',
+  },
+  micButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  micButtonActive: {
+    backgroundColor: '#EF4444',
+  },
+  listeningText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#10B981',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 8,
   },
   analyzeButton: {
     backgroundColor: '#10B981',
@@ -438,6 +662,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 16,
     borderRadius: 12,
+    marginTop: 16,
   },
   analyzingButton: {
     backgroundColor: '#9CA3AF',
