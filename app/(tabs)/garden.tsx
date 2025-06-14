@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Flower, Droplets, Sun, Leaf, Sparkles, Award, TrendingUp } from 'lucide-react-native';
+import { Flower, Droplets, Sun, Leaf, Sparkles, Award, TrendingUp, Plus, Calendar, Target } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { plantService, wellnessService } from '@/lib/database';
+import { plantService, wellnessService, moodService, journalService } from '@/lib/database';
 import { Plant } from '@/types/database';
+import { AnimatedPlant } from '@/components/AnimatedPlant';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function GardenScreen() {
   const { user } = useAuth();
@@ -14,6 +17,7 @@ export default function GardenScreen() {
   const [selectedPlant, setSelectedPlant] = useState<string | null>(null);
   const [plants, setPlants] = useState<Plant[]>([]);
   const [gardenStats, setGardenStats] = useState<any>(null);
+  const [dailyProgress, setDailyProgress] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [animatedValues] = useState(() => 
     Array.from({ length: 10 }, () => new Animated.Value(0))
@@ -22,6 +26,7 @@ export default function GardenScreen() {
   useEffect(() => {
     if (user) {
       loadGardenData();
+      loadDailyProgress();
     }
   }, [user]);
 
@@ -31,11 +36,11 @@ export default function GardenScreen() {
       const animations = plants.map((_, index) => 
         Animated.spring(animatedValues[index], {
           toValue: 1,
-          delay: index * 100,
+          delay: index * 200,
           useNativeDriver: true,
         })
       );
-      Animated.stagger(100, animations).start();
+      Animated.stagger(200, animations).start();
     }
   }, [plants]);
 
@@ -54,6 +59,40 @@ export default function GardenScreen() {
       console.error('Error loading garden data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDailyProgress = async () => {
+    if (!user) return;
+    
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const [moodEntries, journalEntries, activities] = await Promise.all([
+        moodService.getMoodEntriesForPeriod(user.id, today + 'T00:00:00Z', today + 'T23:59:59Z'),
+        journalService.getJournalEntries(user.id, 1),
+        wellnessService.getActivitiesForPeriod(user.id, today + 'T00:00:00Z', today + 'T23:59:59Z')
+      ]);
+
+      const todayJournal = journalEntries.filter(entry => 
+        new Date(entry.created_at).toDateString() === new Date().toDateString()
+      );
+
+      const completedActivities = activities.filter(a => a.completed).length;
+      const totalPossibleActivities = 5; // mood, journal, meditation, exercise, gratitude
+
+      const progress = {
+        mood: moodEntries.length > 0,
+        journal: todayJournal.length > 0,
+        activities: completedActivities,
+        totalActivities: totalPossibleActivities,
+        overallProgress: Math.round(((moodEntries.length > 0 ? 1 : 0) + 
+                                   (todayJournal.length > 0 ? 1 : 0) + 
+                                   completedActivities) / (2 + totalPossibleActivities) * 100)
+      };
+
+      setDailyProgress(progress);
+    } catch (error) {
+      console.error('Error loading daily progress:', error);
     }
   };
 
@@ -88,13 +127,6 @@ export default function GardenScreen() {
         associated_activity: randomActivity
       });
 
-      // Create a wellness activity for the new plant
-      await wellnessService.createActivity({
-        user_id: user.id,
-        activity_type: randomActivity.toLowerCase().replace(' ', '_'),
-        completed: false
-      });
-
       Alert.alert(
         'New Seed Planted! 🌱',
         `${randomName} has been planted in your wellness garden. This plant represents your commitment to ${randomActivity}. Nurture it through consistent practice and watch your mental well-being flourish!`,
@@ -102,6 +134,7 @@ export default function GardenScreen() {
       );
 
       loadGardenData();
+      loadDailyProgress();
     } catch (error) {
       console.error('Error creating plant:', error);
       Alert.alert('Error', 'Failed to plant new seed. Please try again.');
@@ -112,24 +145,9 @@ export default function GardenScreen() {
     try {
       const updatedPlant = await plantService.waterPlant(plantId);
       
-      // Animate the plant growth
-      const plantIndex = plants.findIndex(p => p.id === plantId);
-      if (plantIndex !== -1) {
-        Animated.sequence([
-          Animated.spring(animatedValues[plantIndex], {
-            toValue: 1.2,
-            useNativeDriver: true,
-          }),
-          Animated.spring(animatedValues[plantIndex], {
-            toValue: 1,
-            useNativeDriver: true,
-          })
-        ]).start();
-      }
-      
       Alert.alert(
         'Plant Nurtured! 💧',
-        `Your ${updatedPlant.name} feels the positive energy from your wellness activities! Health: ${updatedPlant.health}%, Growth Stage: ${updatedPlant.growth_stage}/5. Each drop of care strengthens your mental resilience.`,
+        `Your ${updatedPlant.name} feels the positive energy from your wellness activities! Health: ${updatedPlant.health}%, Growth Stage: ${updatedPlant.growth_stage}/5.`,
         [{ text: 'Keep Growing!', style: 'default' }]
       );
 
@@ -140,52 +158,11 @@ export default function GardenScreen() {
     }
   };
 
-  const handleSunlightPlant = async (plantId: string) => {
-    try {
-      const updatedPlant = await plantService.sunlightPlant(plantId);
-      
-      // Animate the plant growth
-      const plantIndex = plants.findIndex(p => p.id === plantId);
-      if (plantIndex !== -1) {
-        Animated.sequence([
-          Animated.spring(animatedValues[plantIndex], {
-            toValue: 1.3,
-            useNativeDriver: true,
-          }),
-          Animated.spring(animatedValues[plantIndex], {
-            toValue: 1,
-            useNativeDriver: true,
-          })
-        ]).start();
-      }
-      
-      Alert.alert(
-        'Sunlight Shared! ☀️',
-        `Your ${updatedPlant.name} basks in the warm glow of your consistent journaling! Health: ${updatedPlant.health}%, Growth Stage: ${updatedPlant.growth_stage}/5. Your reflective practice illuminates the path to inner growth.`,
-        [{ text: 'Continue Reflecting!', style: 'default' }]
-      );
-
-      loadGardenData();
-    } catch (error) {
-      console.error('Error giving sunlight to plant:', error);
-      Alert.alert('Error', 'Failed to give sunlight to plant. Please try again.');
-    }
-  };
-
-  const getPlantEmoji = (plant: Plant) => {
-    const stageEmojis = {
-      flower: ['🌱', '🌿', '🌸', '🌺', '🌻'],
-      tree: ['🌱', '🌿', '🌳', '🌲', '🌳'],
-      herb: ['🌱', '🌿', '🌾', '🍃', '🌿'],
-      succulent: ['🌱', '🌵', '🌵', '🌵', '🌵']
-    };
-    return stageEmojis[plant.type][plant.growth_stage - 1];
-  };
-
-  const getHealthColor = (health: number) => {
-    if (health >= 80) return '#10B981';
-    if (health >= 60) return '#F59E0B';
-    return '#EF4444';
+  const calculatePlantGrowth = (plant: Plant) => {
+    // Calculate growth based on health and daily progress
+    const baseGrowth = (plant.health / 100) * (plant.growth_stage / 5) * 100;
+    const progressBonus = dailyProgress ? (dailyProgress.overallProgress / 100) * 20 : 0;
+    return Math.min(100, baseGrowth + progressBonus);
   };
 
   const getDaysOld = (createdAt: string) => {
@@ -193,15 +170,6 @@ export default function GardenScreen() {
     const now = new Date();
     return Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
   };
-
-  const achievements = [
-    { title: 'Seed Planter', description: 'Planted your first seed of intention', earned: plants.length > 0, icon: '🌱' },
-    { title: 'Garden Tender', description: 'Nurtured 3 aspects of wellness for a week', earned: plants.length >= 3, icon: '🌿' },
-    { title: 'Bloom Cultivator', description: 'Witnessed the full flowering of growth', earned: plants.some(p => p.type === 'flower' && p.growth_stage === 5), icon: '🌸' },
-    { title: 'Ecosystem Builder', description: 'Created a diverse wellness ecosystem', earned: plants.length >= 5, icon: '🌳' },
-    { title: 'Harmony Keeper', description: 'Achieved perfect balance in all areas', earned: plants.length > 0 && plants.every(p => p.health === 100), icon: '🧘‍♀️' },
-    { title: 'Master Gardener', description: 'Reached full maturity in personal growth', earned: plants.some(p => p.growth_stage === 5), icon: '🏆' },
-  ];
 
   if (loading) {
     return (
@@ -216,7 +184,7 @@ export default function GardenScreen() {
   return (
     <SafeAreaView style={[styles.container, isDark && styles.darkContainer]}>
       <LinearGradient 
-        colors={isDark ? ['#1F2937', '#111827'] : ['#ECFDF5', '#FFFFFF']} 
+        colors={isDark ? ['#1F2937', '#111827'] : ['#ECFDF5', '#F0FDF4']} 
         style={styles.gradient}
       >
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -225,6 +193,45 @@ export default function GardenScreen() {
             <Text style={[styles.greeting, isDark && styles.darkText]}>Your Wellness Garden 🌻</Text>
             <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>Where inner growth takes root and flourishes</Text>
           </View>
+
+          {/* Daily Progress Card */}
+          {dailyProgress && (
+            <View style={[styles.progressCard, isDark && styles.darkCard]}>
+              <View style={styles.progressHeader}>
+                <Calendar size={20} color="#10B981" />
+                <Text style={[styles.progressTitle, isDark && styles.darkText]}>Today's Growth</Text>
+                <Text style={[styles.progressPercentage, { color: '#10B981' }]}>
+                  {dailyProgress.overallProgress}%
+                </Text>
+              </View>
+              
+              <View style={styles.progressBar}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { width: `${dailyProgress.overallProgress}%` }
+                  ]} 
+                />
+              </View>
+              
+              <View style={styles.progressItems}>
+                <View style={styles.progressItem}>
+                  <View style={[styles.progressDot, { backgroundColor: dailyProgress.mood ? '#10B981' : '#E5E7EB' }]} />
+                  <Text style={[styles.progressItemText, isDark && styles.darkSubtitle]}>Mood Check</Text>
+                </View>
+                <View style={styles.progressItem}>
+                  <View style={[styles.progressDot, { backgroundColor: dailyProgress.journal ? '#10B981' : '#E5E7EB' }]} />
+                  <Text style={[styles.progressItemText, isDark && styles.darkSubtitle]}>Journal Entry</Text>
+                </View>
+                <View style={styles.progressItem}>
+                  <View style={[styles.progressDot, { backgroundColor: dailyProgress.activities > 0 ? '#10B981' : '#E5E7EB' }]} />
+                  <Text style={[styles.progressItemText, isDark && styles.darkSubtitle]}>
+                    Activities ({dailyProgress.activities}/{dailyProgress.totalActivities})
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Garden Overview */}
           <View style={[styles.overviewCard, isDark && styles.darkCard]}>
@@ -251,10 +258,10 @@ export default function GardenScreen() {
           {/* Garden Grid */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Your Growing Intentions</Text>
+              <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Your Growing Garden</Text>
               <TouchableOpacity style={styles.addPlantButton} onPress={createNewPlant}>
-                <Sparkles size={16} color="#FFFFFF" />
-                <Text style={styles.addPlantText}>Plant New Seed</Text>
+                <Plus size={16} color="#FFFFFF" />
+                <Text style={styles.addPlantText}>Plant Seed</Text>
               </TouchableOpacity>
             </View>
             
@@ -266,86 +273,95 @@ export default function GardenScreen() {
                 </Text>
               </View>
             ) : (
-              <View style={styles.plantsGrid}>
+              <View style={styles.gardenGrid}>
                 {plants.map((plant, index) => (
                   <Animated.View
                     key={plant.id}
                     style={[
+                      styles.plantSpot,
                       {
-                        transform: [{ scale: animatedValues[index] }],
+                        transform: [
+                          { scale: animatedValues[index] },
+                          { 
+                            translateY: animatedValues[index].interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [20, 0],
+                            })
+                          }
+                        ],
                         opacity: animatedValues[index],
                       }
                     ]}
                   >
                     <TouchableOpacity 
                       style={[
-                        styles.plantCard,
-                        isDark && styles.darkCard,
-                        selectedPlant === plant.id && styles.selectedPlantCard
+                        styles.plantContainer,
+                        isDark && styles.darkPlantContainer,
+                        selectedPlant === plant.id && styles.selectedPlantContainer
                       ]}
                       onPress={() => setSelectedPlant(selectedPlant === plant.id ? null : plant.id)}
                     >
-                      <View style={styles.plantHeader}>
-                        <View style={styles.plantEmoji}>
-                          <Text style={styles.plantEmojiText}>{getPlantEmoji(plant)}</Text>
-                        </View>
-                        <View style={styles.plantInfo}>
-                          <Text style={[styles.plantName, isDark && styles.darkText]}>{plant.name}</Text>
-                          <Text style={[styles.plantActivity, isDark && styles.darkSubtitle]}>
-                            {plant.associated_activity}
-                          </Text>
-                        </View>
+                      <View style={styles.plantDisplay}>
+                        <AnimatedPlant
+                          growthStage={calculatePlantGrowth(plant)}
+                          plantType={plant.type}
+                          size={100}
+                          isDark={isDark}
+                        />
                       </View>
                       
-                      <View style={styles.plantStats}>
-                        <View style={styles.healthContainer}>
-                          <View style={styles.healthBar}>
-                            <View 
-                              style={[
-                                styles.healthFill, 
-                                { 
-                                  width: `${plant.health}%`,
-                                  backgroundColor: getHealthColor(plant.health)
-                                }
-                              ]} 
-                            />
-                          </View>
-                          <Text style={[styles.healthText, isDark && styles.darkSubtitle]}>
-                            {plant.health}% vitality
-                          </Text>
-                        </View>
-
+                      <View style={styles.plantInfo}>
+                        <Text style={[styles.plantName, isDark && styles.darkText]}>{plant.name}</Text>
+                        <Text style={[styles.plantActivity, isDark && styles.darkSubtitle]}>
+                          {plant.associated_activity}
+                        </Text>
+                        
                         <View style={styles.plantMeta}>
-                          <Text style={[styles.plantAge, isDark && styles.darkSubtitle]}>
-                            {getDaysOld(plant.created_at)} days growing
-                          </Text>
-                          <Text style={styles.growthStage}>Stage {plant.growth_stage}/5</Text>
+                          <View style={styles.healthContainer}>
+                            <View style={styles.healthBar}>
+                              <View 
+                                style={[
+                                  styles.healthFill, 
+                                  { 
+                                    width: `${plant.health}%`,
+                                    backgroundColor: plant.health >= 80 ? '#10B981' : plant.health >= 60 ? '#F59E0B' : '#EF4444'
+                                  }
+                                ]} 
+                              />
+                            </View>
+                            <Text style={[styles.healthText, isDark && styles.darkSubtitle]}>
+                              {plant.health}% vitality
+                            </Text>
+                          </View>
+                          
+                          <View style={styles.plantStats}>
+                            <Text style={[styles.plantAge, isDark && styles.darkSubtitle]}>
+                              {getDaysOld(plant.created_at)} days old
+                            </Text>
+                            <Text style={[styles.growthStage, { backgroundColor: '#10B981' + '20', color: '#10B981' }]}>
+                              Stage {plant.growth_stage}/5
+                            </Text>
+                          </View>
                         </View>
                       </View>
 
                       {/* Plant Actions */}
                       {selectedPlant === plant.id && (
                         <View style={styles.plantActions}>
-                          <View style={styles.actionButtons}>
-                            <TouchableOpacity 
-                              style={[styles.actionButton, styles.waterButton]}
-                              onPress={() => waterPlant(plant.id)}
-                            >
-                              <Droplets size={18} color="#FFFFFF" />
-                              <Text style={styles.actionButtonText}>Water</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                              style={[styles.actionButton, styles.sunlightButton]}
-                              onPress={() => handleSunlightPlant(plant.id)}
-                            >
-                              <Sun size={18} color="#FFFFFF" />
-                              <Text style={styles.actionButtonText}>Sunlight</Text>
-                            </TouchableOpacity>
-                          </View>
-                          
-                          <Text style={[styles.actionHint, isDark && styles.darkActionHint]}>
-                            💧 Water through wellness activities • ☀️ Sunlight through journaling
-                          </Text>
+                          <TouchableOpacity 
+                            style={[styles.actionButton, styles.waterButton]}
+                            onPress={() => waterPlant(plant.id)}
+                          >
+                            <Droplets size={18} color="#FFFFFF" />
+                            <Text style={styles.actionButtonText}>Water</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={[styles.actionButton, styles.sunlightButton]}
+                            onPress={() => waterPlant(plant.id)}
+                          >
+                            <Sun size={18} color="#FFFFFF" />
+                            <Text style={styles.actionButtonText}>Sunlight</Text>
+                          </TouchableOpacity>
                         </View>
                       )}
                     </TouchableOpacity>
@@ -355,75 +371,24 @@ export default function GardenScreen() {
             )}
           </View>
 
-          {/* Achievements */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Growth Milestones</Text>
-            <View style={styles.achievementsGrid}>
-              {achievements.map((achievement, index) => (
-                <View 
-                  key={index} 
-                  style={[
-                    styles.achievementCard,
-                    isDark && styles.darkCard,
-                    achievement.earned && styles.earnedAchievement
-                  ]}
-                >
-                  <Text style={styles.achievementIcon}>{achievement.icon}</Text>
-                  <Award 
-                    size={20} 
-                    color={achievement.earned ? '#F59E0B' : (isDark ? '#6B7280' : '#9CA3AF')} 
-                  />
-                  <Text style={[
-                    styles.achievementTitle,
-                    isDark && styles.darkText,
-                    achievement.earned && styles.earnedText
-                  ]}>
-                    {achievement.title}
-                  </Text>
-                  <Text style={[
-                    styles.achievementDescription,
-                    isDark && styles.darkSubtitle,
-                    achievement.earned && styles.earnedDescription
-                  ]}>
-                    {achievement.description}
-                  </Text>
-                </View>
-              ))}
+          {/* Growth Tips */}
+          <View style={[styles.tipsCard, isDark && styles.darkCard]}>
+            <View style={styles.tipsHeader}>
+              <Target size={20} color="#10B981" />
+              <Text style={[styles.tipsTitle, isDark && styles.darkText]}>Growing Tips</Text>
             </View>
-          </View>
-
-          {/* Care Tips */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Wisdom for Growth</Text>
-            <View style={[styles.tipsCard, isDark && styles.darkCard]}>
-              <View style={styles.tipItem}>
-                <Droplets size={20} color="#3B82F6" />
-                <View style={styles.tipContent}>
-                  <Text style={[styles.tipTitle, isDark && styles.darkText]}>Nourishing Waters</Text>
-                  <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
-                    Complete wellness activities to water your plants. Each meditation, exercise, or mindful practice sends life-giving energy to your garden, representing how consistent self-care nourishes your mental health.
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.tipItem}>
-                <Sun size={20} color="#F59E0B" />
-                <View style={styles.tipContent}>
-                  <Text style={[styles.tipTitle, isDark && styles.darkText]}>Illuminating Sunlight</Text>
-                  <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
-                    Regular journaling provides sunlight for growth. Your written reflections illuminate patterns, insights, and wisdom, helping your inner garden flourish through the power of self-awareness and mindful observation.
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.tipItem}>
-                <TrendingUp size={20} color="#10B981" />
-                <View style={styles.tipContent}>
-                  <Text style={[styles.tipTitle, isDark && styles.darkText]}>Steady Growth</Text>
-                  <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
-                    Like real plants, your wellness garden thrives on consistency rather than intensity. Small, daily acts of self-care create lasting transformation, building resilience and inner strength that grows stronger with time.
-                  </Text>
-                </View>
-              </View>
-            </View>
+            <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
+              🌱 Complete daily wellness activities to help your plants grow
+            </Text>
+            <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
+              💧 Regular mood tracking and journaling provides essential nutrients
+            </Text>
+            <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
+              ☀️ Consistency is key - small daily actions create the biggest growth
+            </Text>
+            <Text style={[styles.tipText, isDark && styles.darkSubtitle]}>
+              🌸 Watch your plants bloom as you build lasting wellness habits
+            </Text>
           </View>
         </ScrollView>
       </LinearGradient>
@@ -461,32 +426,96 @@ const styles = StyleSheet.create({
   header: {
     padding: 24,
     paddingTop: 16,
+    alignItems: 'center',
   },
   greeting: {
     fontSize: 28,
     fontFamily: 'Inter-Bold',
     color: '#1F2937',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
+    textAlign: 'center',
+  },
+  progressCard: {
+    backgroundColor: '#FFFFFF',
+    margin: 24,
+    marginTop: 0,
+    padding: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  darkCard: {
+    backgroundColor: '#374151',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  progressTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    flex: 1,
+    marginLeft: 12,
+  },
+  progressPercentage: {
+    fontSize: 20,
+    fontFamily: 'Inter-Bold',
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    marginBottom: 16,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 4,
+  },
+  progressItems: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  progressItemText: {
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
+    color: '#6B7280',
+    flex: 1,
   },
   overviewCard: {
     backgroundColor: '#FFFFFF',
     margin: 24,
     marginTop: 0,
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  darkCard: {
-    backgroundColor: '#374151',
+    shadowRadius: 12,
+    elevation: 8,
   },
   overviewHeader: {
     flexDirection: 'row',
@@ -516,6 +545,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Medium',
     color: '#6B7280',
+    textAlign: 'center',
   },
   section: {
     margin: 24,
@@ -525,11 +555,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 22,
+    fontFamily: 'Inter-Bold',
     color: '#1F2937',
   },
   addPlantButton: {
@@ -537,31 +567,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   addPlantText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter-SemiBold',
     marginLeft: 6,
   },
   emptyGarden: {
     backgroundColor: '#FFFFFF',
     padding: 40,
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   emptyGardenText: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 20,
+    fontFamily: 'Inter-Bold',
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   emptyGardenSubtext: {
     fontSize: 14,
@@ -570,115 +606,110 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  plantsGrid: {
+  gardenGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  plantCard: {
+  plantSpot: {
+    width: '48%',
+    marginBottom: 20,
+  },
+  plantContainer: {
     backgroundColor: '#FFFFFF',
-    width: '100%',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  selectedPlantCard: {
+    shadowRadius: 12,
+    elevation: 8,
     borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  darkPlantContainer: {
+    backgroundColor: '#374151',
+  },
+  selectedPlantContainer: {
     borderColor: '#10B981',
-  },
-  plantHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  plantEmoji: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
     backgroundColor: '#F0FDF4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
   },
-  plantEmojiText: {
-    fontSize: 28,
+  plantDisplay: {
+    alignItems: 'center',
+    marginBottom: 12,
+    height: 120,
+    justifyContent: 'center',
   },
   plantInfo: {
-    flex: 1,
+    alignItems: 'center',
   },
   plantName: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 16,
+    fontFamily: 'Inter-Bold',
     color: '#1F2937',
     marginBottom: 4,
+    textAlign: 'center',
   },
   plantActivity: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
     color: '#6B7280',
-  },
-  plantStats: {
     marginBottom: 12,
+    textAlign: 'center',
+  },
+  plantMeta: {
+    width: '100%',
   },
   healthContainer: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   healthBar: {
-    height: 8,
+    height: 6,
     backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    marginBottom: 8,
+    borderRadius: 3,
+    marginBottom: 4,
   },
   healthFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   healthText: {
-    fontSize: 14,
+    fontSize: 11,
     fontFamily: 'Inter-Medium',
     color: '#6B7280',
+    textAlign: 'center',
   },
-  plantMeta: {
+  plantStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   plantAge: {
-    fontSize: 12,
+    fontSize: 10,
     fontFamily: 'Inter-Regular',
     color: '#9CA3AF',
   },
   growthStage: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: '#10B981',
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    fontSize: 10,
+    fontFamily: 'Inter-Bold',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
   plantActions: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
     flex: 0.48,
   },
@@ -690,94 +721,38 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-    marginLeft: 6,
-  },
-  actionHint: {
-    fontSize: 11,
-    fontFamily: 'Inter-Regular',
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  darkActionHint: {
-    color: '#6B7280',
-  },
-  achievementsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  achievementCard: {
-    backgroundColor: '#FFFFFF',
-    width: '48%',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  earnedAchievement: {
-    backgroundColor: '#FEF3C7',
-  },
-  achievementIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  achievementTitle: {
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-    color: '#9CA3AF',
-    marginTop: 8,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  earnedText: {
-    color: '#92400E',
-  },
-  achievementDescription: {
     fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    color: '#D1D5DB',
-    textAlign: 'center',
-  },
-  earnedDescription: {
-    color: '#92400E',
+    fontFamily: 'Inter-SemiBold',
+    marginLeft: 4,
   },
   tipsCard: {
     backgroundColor: '#FFFFFF',
+    margin: 24,
+    marginTop: 0,
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  tipItem: {
+  tipsHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  tipContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  tipTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
+  tipsTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
     color: '#1F2937',
-    marginBottom: 4,
+    marginLeft: 12,
   },
   tipText: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
     lineHeight: 20,
+    marginBottom: 8,
   },
 });

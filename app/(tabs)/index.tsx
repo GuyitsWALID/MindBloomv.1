@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Brain, Sparkles, MessageCircle, Heart, Zap, Sun, Moon, Mic, MicOff, Volume2, VolumeX } from 'lucide-react-native';
+import { Brain, Sparkles, MessageCircle, Heart, Zap, Sun, Moon, Mic, MicOff, Volume2, VolumeX, BookOpen, Calendar, Target } from 'lucide-react-native';
 import { MoodSelector } from '@/components/MoodSelector';
 import { WellnessCard } from '@/components/WellnessCard';
 import { AIInsight } from '@/components/AIInsight';
@@ -346,7 +346,7 @@ export default function HomeScreen() {
       type: 'gratitude'
     },
     { 
-      icon: MessageCircle, 
+      icon: BookOpen, 
       title: 'Journal Entry', 
       subtitle: 'Write your thoughts', 
       color: '#3B82F6',
@@ -384,7 +384,7 @@ export default function HomeScreen() {
               <Text style={[styles.greeting, isDark && styles.darkText]}>{getGreeting()}</Text>
               <Text style={[styles.subtitle, isDark && styles.darkSubtitle]}>How are you feeling today?</Text>
             </View>
-            <TouchableOpacity onPress={toggleTheme} style={styles.themeToggle}>
+            <TouchableOpacity onPress={toggleTheme} style={[styles.themeToggle, isDark && styles.darkThemeToggle]}>
               {isDark ? <Sun size={24} color="#F59E0B" /> : <Moon size={24} color="#6B7280" />}
             </TouchableOpacity>
           </View>
@@ -492,22 +492,31 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Today's Growth</Text>
             <View style={[styles.progressCard, isDark && styles.darkCard]}>
               <View style={styles.progressItem}>
-                <Text style={styles.progressNumber}>
-                  {dashboardData?.activityStats?.completedActivities || 0}
-                </Text>
-                <Text style={[styles.progressLabel, isDark && styles.darkSubtitle]}>Activities</Text>
+                <Calendar size={20} color="#10B981" />
+                <View style={styles.progressContent}>
+                  <Text style={[styles.progressLabel, isDark && styles.darkText]}>Activities</Text>
+                  <Text style={[styles.progressNumber, isDark && styles.darkSubtitle]}>
+                    {dashboardData?.activityStats?.completedActivities || 0}
+                  </Text>
+                </View>
               </View>
               <View style={styles.progressItem}>
-                <Text style={styles.progressNumber}>
-                  {dashboardData?.journalStats?.streak || 0}
-                </Text>
-                <Text style={[styles.progressLabel, isDark && styles.darkSubtitle]}>Streak Days</Text>
+                <Target size={20} color="#F59E0B" />
+                <View style={styles.progressContent}>
+                  <Text style={[styles.progressLabel, isDark && styles.darkText]}>Streak Days</Text>
+                  <Text style={[styles.progressNumber, isDark && styles.darkSubtitle]}>
+                    {dashboardData?.journalStats?.streak || 0}
+                  </Text>
+                </View>
               </View>
               <View style={styles.progressItem}>
-                <Text style={styles.progressNumber}>
-                  {dashboardData?.gardenStats?.averageHealth || 0}%
-                </Text>
-                <Text style={[styles.progressLabel, isDark && styles.darkSubtitle]}>Garden Health</Text>
+                <Heart size={20} color="#EF4444" />
+                <View style={styles.progressContent}>
+                  <Text style={[styles.progressLabel, isDark && styles.darkText]}>Garden Health</Text>
+                  <Text style={[styles.progressNumber, isDark && styles.darkSubtitle]}>
+                    {dashboardData?.gardenStats?.averageHealth || 0}%
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -566,20 +575,28 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   themeToggle: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  darkThemeToggle: {
+    backgroundColor: 'rgba(55, 65, 81, 0.8)',
   },
   moodInputContainer: {
     margin: 24,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   darkCard: {
     backgroundColor: '#374151',
@@ -603,7 +620,7 @@ const styles = StyleSheet.create({
   },
   voiceButton: {
     padding: 8,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
   },
   voiceButtonDisabled: {
@@ -618,7 +635,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     fontSize: 16,
     fontFamily: 'Inter-Regular',
@@ -661,8 +678,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   analyzingButton: {
     backgroundColor: '#9CA3AF',
@@ -678,8 +700,8 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 22,
+    fontFamily: 'Inter-Bold',
     color: '#1F2937',
     marginBottom: 16,
   },
@@ -690,26 +712,30 @@ const styles = StyleSheet.create({
   },
   progressCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 24,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   progressItem: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  progressNumber: {
-    fontSize: 24,
-    fontFamily: 'Inter-Bold',
-    color: '#10B981',
-    marginBottom: 4,
+  progressContent: {
+    marginLeft: 16,
+    flex: 1,
   },
   progressLabel: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  progressNumber: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
     color: '#6B7280',

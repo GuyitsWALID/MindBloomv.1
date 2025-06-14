@@ -1,5 +1,5 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Chrome as Home, BookOpen, Flower, ChartBar as BarChart3, User, Crown } from 'lucide-react-native';
+import { Chrome as Home, Flower, ChartBar as BarChart3, User, Crown } from 'lucide-react-native';
 import { StyleSheet, Platform } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -27,6 +27,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: '#10B981',
         tabBarInactiveTintColor: isDark ? '#6B7280' : '#9CA3AF',
         tabBarLabelStyle: styles.tabLabel,
+        tabBarItemStyle: styles.tabItem,
       }}>
       <Tabs.Screen
         name="index"
@@ -34,15 +35,6 @@ export default function TabLayout() {
           title: 'Home',
           tabBarIcon: ({ size, color }) => (
             <Home size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="journal"
-        options={{
-          title: 'Journal',
-          tabBarIcon: ({ size, color }) => (
-            <BookOpen size={size} color={color} />
           ),
         }}
       />
@@ -82,6 +74,13 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Keep journal as a hidden route for navigation but not in tabs */}
+      <Tabs.Screen
+        name="journal"
+        options={{
+          href: null, // This hides it from the tab bar
+        }}
+      />
     </Tabs>
   );
 }
@@ -89,19 +88,29 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-    height: Platform.OS === 'ios' ? 88 : 64,
+    borderTopWidth: 0,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    height: Platform.OS === 'ios' ? 92 : 68,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   darkTabBar: {
     backgroundColor: '#1F2937',
-    borderTopColor: '#374151',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
   },
   tabLabel: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 11,
     marginTop: 4,
+  },
+  tabItem: {
+    paddingTop: 4,
   },
 });
