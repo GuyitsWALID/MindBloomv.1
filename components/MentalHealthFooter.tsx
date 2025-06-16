@@ -2,28 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { 
-  Heart, 
-  Activity, 
-  TrendingUp, 
-  BookOpen, 
-  Phone, 
-  Wind, 
-  Moon, 
-  Pill,
-  Plus,
-  X,
-  Calendar,
-  Clock,
-  AlertTriangle,
-  BarChart3,
-  Smile,
-  Frown,
-  Meh,
-  Zap,
-  Cloud,
-  Sun
-} from 'lucide-react-native';
+import { Heart, Activity, TrendingUp, BookOpen, Phone, Wind, Moon, Pill, Plus, X, Calendar, Clock, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Smile, Frown, Meh, Zap, Cloud, Sun } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { moodService, journalService } from '@/lib/database';
