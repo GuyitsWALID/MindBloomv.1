@@ -100,7 +100,7 @@ export function MentalHealthFooter() {
   useEffect(() => {
     Animated.timing(expandAnimation, {
       toValue: isExpanded ? 1 : 0,
-      duration: 300,
+      duration: 250,
       useNativeDriver: false,
     }).start();
   }, [isExpanded]);
@@ -558,7 +558,7 @@ export function MentalHealthFooter() {
 
   const expandedHeight = expandAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 120], // Height for expanded mental health tools
+    outputRange: [0, 80], // Reduced height for compact design
   });
 
   return (
@@ -571,9 +571,9 @@ export function MentalHealthFooter() {
               🧠 Mental Health Tools
             </Text>
             {isExpanded ? (
-              <ChevronDown size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+              <ChevronDown size={14} color={isDark ? '#94A3B8' : '#64748B'} />
             ) : (
-              <ChevronUp size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+              <ChevronUp size={14} color={isDark ? '#94A3B8' : '#64748B'} />
             )}
           </TouchableOpacity>
 
@@ -586,7 +586,7 @@ export function MentalHealthFooter() {
                   onPress={() => setActiveModal(item.id)}
                 >
                   <View style={[styles.mentalHealthIconContainer, { backgroundColor: item.color + '20' }]}>
-                    <item.icon size={16} color={item.color} />
+                    <item.icon size={14} color={item.color} />
                   </View>
                   <Text style={[styles.mentalHealthLabel, isDark && styles.darkMentalHealthLabel]}>
                     {item.label}
@@ -614,7 +614,7 @@ export function MentalHealthFooter() {
                   { backgroundColor: activeRoute === item.id ? item.color : 'transparent' }
                 ]}>
                   <item.icon 
-                    size={20} 
+                    size={18} 
                     color={activeRoute === item.id ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)')} 
                   />
                 </View>
@@ -647,25 +647,25 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 20,
-    paddingTop: 20,
-    paddingBottom: 32,
-    paddingHorizontal: 16,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+    paddingHorizontal: 12,
   },
   darkFooter: {
     backgroundColor: '#1E293B',
     borderTopColor: '#334155',
   },
   mentalHealthSection: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   navigationSection: {
     // No additional margin needed
@@ -674,27 +674,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   navItem: {
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    minWidth: 60,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    minWidth: 56,
   },
   activeNavItem: {
     transform: [{ scale: 1.05 }],
   },
   navIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   navLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'Inter-SemiBold',
     color: '#64748B',
     textAlign: 'center',
@@ -706,19 +706,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 12,
-    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderRadius: 10,
+    marginBottom: 4,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.2)',
+    borderColor: 'rgba(59, 130, 246, 0.15)',
   },
   expandToggleText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Inter-SemiBold',
     color: '#3B82F6',
-    marginRight: 8,
+    marginRight: 6,
   },
   darkExpandToggleText: {
     color: '#60A5FA',
@@ -730,25 +730,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   mentalHealthItem: {
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    minWidth: 60,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    minWidth: 52,
   },
   mentalHealthIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 3,
   },
   mentalHealthLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: 'Inter-Medium',
     color: '#64748B',
     textAlign: 'center',
