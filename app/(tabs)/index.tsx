@@ -459,33 +459,30 @@ export default function HomeScreen() {
                     <VolumeX size={20} color="#9CA3AF" />
                   )}
                 </TouchableOpacity>
+                {isVoiceSupported && (
+                  <TouchableOpacity 
+                    style={[styles.micButton, isListening && styles.micButtonActive]}
+                    onPress={startVoiceRecognition}
+                  >
+                    {isListening ? (
+                      <MicOff size={20} color="#FFFFFF" />
+                    ) : (
+                      <Mic size={20} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
             
-            <View style={styles.inputRow}>
-              <TextInput
-                style={[styles.moodInput, isDark && styles.darkInput]}
-                placeholder="I'm feeling... (type or speak)"
-                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                value={moodInput}
-                onChangeText={setMoodInput}
-                multiline
-                numberOfLines={3}
-              />
-              
-              {isVoiceSupported && (
-                <TouchableOpacity 
-                  style={[styles.micButton, isListening && styles.micButtonActive]}
-                  onPress={startVoiceRecognition}
-                >
-                  {isListening ? (
-                    <MicOff size={24} color="#FFFFFF" />
-                  ) : (
-                    <Mic size={24} color="#FFFFFF" />
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
+            <TextInput
+              style={[styles.moodInput, isDark && styles.darkInput]}
+              placeholder="I'm feeling... (type or speak)"
+              placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+              value={moodInput}
+              onChangeText={setMoodInput}
+              multiline
+              numberOfLines={3}
+            />
             
             {isListening && (
               <Text style={[styles.listeningText, isDark && styles.darkSubtitle]}>
@@ -672,6 +669,7 @@ const styles = StyleSheet.create({
   },
   voiceControls: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   voiceButton: {
@@ -682,32 +680,10 @@ const styles = StyleSheet.create({
   voiceButtonDisabled: {
     backgroundColor: 'rgba(156, 163, 175, 0.1)',
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 12,
-  },
-  moodInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-    color: '#1F2937',
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  darkInput: {
-    borderColor: '#4B5563',
-    backgroundColor: '#1F2937',
-    color: '#F9FAFB',
-  },
   micButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
@@ -720,12 +696,28 @@ const styles = StyleSheet.create({
   micButtonActive: {
     backgroundColor: '#EF4444',
   },
+  moodInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#1F2937',
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  darkInput: {
+    borderColor: '#4B5563',
+    backgroundColor: '#1F2937',
+    color: '#F9FAFB',
+  },
   listeningText: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
     color: '#10B981',
     textAlign: 'center',
-    marginTop: 8,
     marginBottom: 8,
   },
   analyzeButton: {
@@ -735,7 +727,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 16,
     borderRadius: 16,
-    marginTop: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
