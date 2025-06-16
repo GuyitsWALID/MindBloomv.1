@@ -6,6 +6,7 @@ import { Brain, Sparkles, MessageCircle, Heart, Zap, Sun, Moon, Mic, MicOff, Vol
 import { MoodSelector } from '@/components/MoodSelector';
 import { WellnessCard } from '@/components/WellnessCard';
 import { AIInsight } from '@/components/AIInsight';
+import { MoodChart } from '@/components/MoodChart';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { moodService, wellnessService, analyticsService } from '@/lib/database';
@@ -71,6 +72,7 @@ export default function HomeScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [moodChartData, setMoodChartData] = useState<any[]>([]);
   
   // Voice features
   const [isListening, setIsListening] = useState(false);
@@ -82,6 +84,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (user) {
       loadDashboardData();
+      loadMoodChartData();
     }
   }, [user]);
 
@@ -128,6 +131,48 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadMoodChartData = async () => {
+    if (!user) return;
+    
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - 7);
+      
+      const moodEntries = await moodService.getMoodEntriesForPeriod(
+        user.id,
+        startDate.toISOString(),
+        endDate.toISOString()
+      );
+      
+      const chartData = moodEntries.map(entry => ({
+        date: entry.created_at,
+        mood: entry.mood,
+        intensity: getMoodIntensity(entry.mood)
+      })).reverse();
+      
+      setMoodChartData(chartData);
+    } catch (error) {
+      console.error('Error loading mood chart data:', error);
+    }
+  };
+
+  const getMoodIntensity = (mood: string): number => {
+    const moodValues: Record<string, number> = {
+      'excellent': 10,
+      'happy': 9,
+      'good': 8,
+      'calm': 7,
+      'neutral': 6,
+      'tired': 5,
+      'anxious': 4,
+      'low': 3,
+      'sad': 2,
+      'poor': 1
+    };
+    return moodValues[mood] || 6;
   };
 
   const startVoiceRecognition = () => {
@@ -293,8 +338,9 @@ export default function HomeScreen() {
         speakText(insight);
       }
       
-      // Reload dashboard data
+      // Reload dashboard data and mood chart
       loadDashboardData();
+      loadMoodChartData();
       
     } catch (error) {
       console.error('Error analyzing mood:', error);
@@ -377,7 +423,10 @@ export default function HomeScreen() {
         colors={isDark ? ['#1F2937', '#111827'] : ['#F0FDF4', '#FFFFFF']}
         style={styles.gradient}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 140 }]} // Add padding for footer
+        >
           {/* Header with Theme Toggle */}
           <View style={styles.header}>
             <View>
@@ -464,6 +513,13 @@ export default function HomeScreen() {
               followUpQuestions={followUpQuestions}
               isDark={isDark}
             />
+          )}
+
+          {/* Mood Chart */}
+          {moodChartData.length > 0 && (
+            <View style={styles.section}>
+              <MoodChart data={moodChartData} isDark={isDark} />
+            </View>
           )}
 
           {/* Mood Selector */}

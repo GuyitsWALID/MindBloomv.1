@@ -1,8 +1,9 @@
 import { Tabs, Redirect } from 'expo-router';
 import { Chrome as Home, Flower, ChartBar as BarChart3, User, Crown } from 'lucide-react-native';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, View } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { MentalHealthFooter } from '@/components/MentalHealthFooter';
 
 export default function TabLayout() {
   const { session, loading } = useAuth();
@@ -17,75 +18,83 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: [
-          styles.tabBar,
-          isDark && styles.darkTabBar
-        ],
-        tabBarActiveTintColor: '#10B981',
-        tabBarInactiveTintColor: isDark ? '#6B7280' : '#9CA3AF',
-        tabBarLabelStyle: styles.tabLabel,
-        tabBarItemStyle: styles.tabItem,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ size, color }) => (
-            <Home size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="garden"
-        options={{
-          title: 'Garden',
-          tabBarIcon: ({ size, color }) => (
-            <Flower size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="analytics"
-        options={{
-          title: 'Analytics',
-          tabBarIcon: ({ size, color }) => (
-            <BarChart3 size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="premium"
-        options={{
-          title: 'Premium',
-          tabBarIcon: ({ size, color }) => (
-            <Crown size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ size, color }) => (
-            <User size={size} color={color} />
-          ),
-        }}
-      />
-      {/* Keep journal as a hidden route for navigation but not in tabs */}
-      <Tabs.Screen
-        name="journal"
-        options={{
-          href: null, // This hides it from the tab bar
-        }}
-      />
-    </Tabs>
+    <View style={styles.container}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: [
+            styles.tabBar,
+            isDark && styles.darkTabBar
+          ],
+          tabBarActiveTintColor: '#10B981',
+          tabBarInactiveTintColor: isDark ? '#6B7280' : '#9CA3AF',
+          tabBarLabelStyle: styles.tabLabel,
+          tabBarItemStyle: styles.tabItem,
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Home',
+            tabBarIcon: ({ size, color }) => (
+              <Home size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="garden"
+          options={{
+            title: 'Garden',
+            tabBarIcon: ({ size, color }) => (
+              <Flower size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="analytics"
+          options={{
+            title: 'Analytics',
+            tabBarIcon: ({ size, color }) => (
+              <BarChart3 size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="premium"
+          options={{
+            title: 'Premium',
+            tabBarIcon: ({ size, color }) => (
+              <Crown size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ size, color }) => (
+              <User size={size} color={color} />
+            ),
+          }}
+        />
+        {/* Keep journal as a hidden route for navigation but not in tabs */}
+        <Tabs.Screen
+          name="journal"
+          options={{
+            href: null, // This hides it from the tab bar
+          }}
+        />
+      </Tabs>
+      
+      {/* Mental Health Footer */}
+      <MentalHealthFooter />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   tabBar: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 0,
@@ -99,6 +108,7 @@ const styles = StyleSheet.create({
     height: Platform.OS === 'ios' ? 92 : 68,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    marginBottom: 120, // Add space for mental health footer
   },
   darkTabBar: {
     backgroundColor: '#1F2937',
