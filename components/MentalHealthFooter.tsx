@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Switch, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, Activity, TrendingUp, BookOpen, Phone, Wind, Moon, Pill, Plus, X, Calendar, Clock, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Smile, Frown, Meh, Zap, Cloud, Sun, Chrome as Home, Flower, User, Crown } from 'lucide-react-native';
+import { Heart, Activity, TrendingUp, BookOpen, Phone, Wind, Moon, Pill, Plus, X, Calendar, Clock, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Smile, Frown, Meh, Zap, Cloud, Sun, Chrome as Home, Flower, User, Crown, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { moodService, journalService } from '@/lib/database';
@@ -32,6 +32,13 @@ interface MedicationReminder {
   times: string[];
   taken: boolean;
   timestamp: string;
+}
+
+interface NotificationSettings {
+  dailyReminders: boolean;
+  weeklyReports: boolean;
+  achievementAlerts: boolean;
+  moodCheckIns: boolean;
 }
 
 const MOOD_OPTIONS = [
@@ -69,6 +76,8 @@ export function MentalHealthFooter() {
   const [symptoms, setSymptoms] = useState<SymptomEntry[]>([]);
   const [medications, setMedications] = useState<MedicationReminder[]>([]);
   const [sleepData, setSleepData] = useState<any[]>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [expandAnimation] = useState(new Animated.Value(0));
 
   // Modal states
   const [selectedMood, setSelectedMood] = useState<string>('');
@@ -77,10 +86,24 @@ export function MentalHealthFooter() {
   const [notes, setNotes] = useState('');
   const [newSymptom, setNewSymptom] = useState('');
   const [symptomSeverity, setSymptomSeverity] = useState(5);
+  const [notifications, setNotifications] = useState<NotificationSettings>({
+    dailyReminders: true,
+    weeklyReports: true,
+    achievementAlerts: true,
+    moodCheckIns: true,
+  });
 
   useEffect(() => {
     loadData();
   }, [user]);
+
+  useEffect(() => {
+    Animated.timing(expandAnimation, {
+      toValue: isExpanded ? 1 : 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [isExpanded]);
 
   const loadData = async () => {
     if (!user) return;
@@ -99,6 +122,10 @@ export function MentalHealthFooter() {
     } catch (error) {
       console.error('Error loading data:', error);
     }
+  };
+
+  const toggleExpansion = () => {
+    setIsExpanded(!isExpanded);
   };
 
   const saveMoodEntry = async () => {
@@ -181,6 +208,11 @@ export function MentalHealthFooter() {
     if (pathname.includes('/premium')) return 'premium';
     if (pathname.includes('/profile')) return 'profile';
     return 'home';
+  };
+
+  const updateNotificationSetting = (key: keyof NotificationSettings, value: boolean) => {
+    setNotifications(prev => ({ ...prev, [key]: value }));
+    // In a real app, this would save to the backend
   };
 
   const renderMoodModal = () => (
@@ -469,6 +501,43 @@ export function MentalHealthFooter() {
     </Modal>
   );
 
+  const renderBreathingModal = () => (
+    <Modal visible={activeModal === 'breathing'} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, isDark && styles.darkModalContent]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, isDark && styles.darkText]}>Breathing Exercises</Text>
+            <TouchableOpacity onPress={() => setActiveModal(null)}>
+              <X size={24} color={isDark ? '#F9FAFB' : '#1F2937'} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text style={[styles.breathingIntro, isDark && styles.darkText]}>
+              Take a moment to center yourself with these guided breathing exercises. Find a comfortable position and follow along.
+            </Text>
+
+            {BREATHING_EXERCISES.map((exercise, index) => (
+              <TouchableOpacity key={index} style={[styles.breathingExerciseCard, isDark && styles.darkExerciseCard]}>
+                <View style={styles.exerciseHeader}>
+                  <Wind size={24} color="#3B82F6" />
+                  <Text style={[styles.exerciseName, isDark && styles.darkText]}>{exercise.name}</Text>
+                </View>
+                <Text style={[styles.exerciseDescription, isDark && styles.darkText]}>{exercise.description}</Text>
+                <View style={styles.exerciseFooter}>
+                  <Text style={[styles.exerciseDuration, isDark && styles.darkText]}>{exercise.duration}</Text>
+                  <View style={styles.startButton}>
+                    <Text style={styles.startButtonText}>Start</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const navigationItems = [
     { id: 'home', icon: Home, label: 'Home', route: '/', color: '#3B82F6' },
     { id: 'garden', icon: Flower, label: 'Garden', route: '/garden', color: '#10B981' },
@@ -487,12 +556,16 @@ export function MentalHealthFooter() {
 
   const activeRoute = getActiveRoute();
 
+  const expandedHeight = expandAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 120], // Height for expanded mental health tools
+  });
+
   return (
     <>
       <View style={[styles.footer, isDark && styles.darkFooter]}>
         {/* Main Navigation Section */}
         <View style={styles.navigationSection}>
-          <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Navigate</Text>
           <View style={styles.navigationContent}>
             {navigationItems.map((item) => (
               <TouchableOpacity
@@ -508,7 +581,7 @@ export function MentalHealthFooter() {
                   { backgroundColor: activeRoute === item.id ? item.color : 'transparent' }
                 ]}>
                   <item.icon 
-                    size={18} 
+                    size={20} 
                     color={activeRoute === item.id ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)')} 
                   />
                 </View>
@@ -524,25 +597,37 @@ export function MentalHealthFooter() {
           </View>
         </View>
 
-        {/* Mental Health Tools Section */}
+        {/* Expandable Mental Health Tools Section */}
         <View style={styles.mentalHealthSection}>
-          <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Mental Health Tools</Text>
-          <View style={styles.mentalHealthContent}>
-            {mentalHealthItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.mentalHealthItem}
-                onPress={() => setActiveModal(item.id)}
-              >
-                <View style={[styles.mentalHealthIconContainer, { backgroundColor: item.color + '20' }]}>
-                  <item.icon size={16} color={item.color} />
-                </View>
-                <Text style={[styles.mentalHealthLabel, isDark && styles.darkMentalHealthLabel]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity style={styles.expandToggle} onPress={toggleExpansion}>
+            <Text style={[styles.expandToggleText, isDark && styles.darkExpandToggleText]}>
+              Mental Health Tools
+            </Text>
+            {isExpanded ? (
+              <ChevronDown size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+            ) : (
+              <ChevronUp size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+            )}
+          </TouchableOpacity>
+
+          <Animated.View style={[styles.expandableContent, { height: expandedHeight }]}>
+            <View style={styles.mentalHealthContent}>
+              {mentalHealthItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.mentalHealthItem}
+                  onPress={() => setActiveModal(item.id)}
+                >
+                  <View style={[styles.mentalHealthIconContainer, { backgroundColor: item.color + '20' }]}>
+                    <item.icon size={16} color={item.color} />
+                  </View>
+                  <Text style={[styles.mentalHealthLabel, isDark && styles.darkMentalHealthLabel]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
         </View>
       </View>
 
@@ -550,6 +635,7 @@ export function MentalHealthFooter() {
       {renderSymptomModal()}
       {renderProgressModal()}
       {renderCrisisModal()}
+      {renderBreathingModal()}
     </>
   );
 }
@@ -579,22 +665,10 @@ const styles = StyleSheet.create({
     borderTopColor: '#334155',
   },
   navigationSection: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   mentalHealthSection: {
     // No additional margin needed
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontFamily: 'Inter-SemiBold',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  darkSectionTitle: {
-    color: '#94A3B8',
   },
   navigationContent: {
     flexDirection: 'row',
@@ -612,15 +686,15 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.05 }],
   },
   navIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
   navLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: 'Inter-SemiBold',
     color: '#64748B',
     textAlign: 'center',
@@ -628,11 +702,34 @@ const styles = StyleSheet.create({
   darkNavLabel: {
     color: '#94A3B8',
   },
+  expandToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(148, 163, 184, 0.1)',
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  expandToggleText: {
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    color: '#64748B',
+    marginRight: 8,
+  },
+  darkExpandToggleText: {
+    color: '#94A3B8',
+  },
+  expandableContent: {
+    overflow: 'hidden',
+  },
   mentalHealthContent: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
   },
   mentalHealthItem: {
     alignItems: 'center',
@@ -641,15 +738,15 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   mentalHealthIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   mentalHealthLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: 'Inter-Medium',
     color: '#64748B',
     textAlign: 'center',
@@ -975,5 +1072,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter-Medium',
     color: '#3B82F6',
+  },
+  breathingIntro: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    lineHeight: 24,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  breathingExerciseCard: {
+    backgroundColor: '#F9FAFB',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  exerciseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  exerciseFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  startButton: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  startButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
   },
 });
