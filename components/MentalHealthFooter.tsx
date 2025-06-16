@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, Activity, TrendingUp, BookOpen, Phone, Wind, Moon, Pill, Plus, X, Calendar, Clock, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Smile, Frown, Meh, Zap, Cloud, Sun } from 'lucide-react-native';
+import { Heart, Activity, TrendingUp, BookOpen, Phone, Wind, Moon, Pill, Plus, X, Calendar, Clock, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Smile, Frown, Meh, Zap, Cloud, Sun, Chrome as Home, Flower, User, Crown } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { moodService, journalService } from '@/lib/database';
+import { router, usePathname } from 'expo-router';
 
 interface MoodEntry {
   id: string;
@@ -62,8 +63,8 @@ const BREATHING_EXERCISES = [
 export function MentalHealthFooter() {
   const { user } = useAuth();
   const { isDark } = useTheme();
+  const pathname = usePathname();
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('mood');
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
   const [symptoms, setSymptoms] = useState<SymptomEntry[]>([]);
   const [medications, setMedications] = useState<MedicationReminder[]>([]);
@@ -167,6 +168,19 @@ export function MentalHealthFooter() {
     } else {
       return "Your mood seems balanced today. Continue with your self-care practices.";
     }
+  };
+
+  const handleNavigation = (route: string) => {
+    router.push(route as any);
+  };
+
+  const getActiveRoute = () => {
+    if (pathname === '/') return 'home';
+    if (pathname.includes('/garden')) return 'garden';
+    if (pathname.includes('/analytics')) return 'analytics';
+    if (pathname.includes('/premium')) return 'premium';
+    if (pathname.includes('/profile')) return 'profile';
+    return 'home';
   };
 
   const renderMoodModal = () => (
@@ -455,51 +469,80 @@ export function MentalHealthFooter() {
     </Modal>
   );
 
-  const footerItems = [
+  const navigationItems = [
+    { id: 'home', icon: Home, label: 'Home', route: '/', color: '#3B82F6' },
+    { id: 'garden', icon: Flower, label: 'Garden', route: '/garden', color: '#10B981' },
+    { id: 'analytics', icon: BarChart3, label: 'Analytics', route: '/analytics', color: '#8B5CF6' },
+    { id: 'premium', icon: Crown, label: 'Premium', route: '/premium', color: '#F59E0B' },
+    { id: 'profile', icon: User, label: 'Profile', route: '/profile', color: '#EF4444' },
+  ];
+
+  const mentalHealthItems = [
     { id: 'mood', icon: Heart, label: 'Mood', color: '#EF4444' },
     { id: 'symptoms', icon: Activity, label: 'Symptoms', color: '#F59E0B' },
     { id: 'progress', icon: TrendingUp, label: 'Progress', color: '#10B981' },
-    { id: 'journal', icon: BookOpen, label: 'Journal', color: '#3B82F6' },
     { id: 'crisis', icon: Phone, label: 'Crisis', color: '#8B5CF6' },
     { id: 'breathing', icon: Wind, label: 'Breathe', color: '#06B6D4' },
-    { id: 'sleep', icon: Moon, label: 'Sleep', color: '#6366F1' },
-    { id: 'meds', icon: Pill, label: 'Meds', color: '#EC4899' },
   ];
+
+  const activeRoute = getActiveRoute();
 
   return (
     <>
       <View style={[styles.footer, isDark && styles.darkFooter]}>
-        <View style={styles.footerContent}>
-          {footerItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.footerItem,
-                activeTab === item.id && styles.activeFooterItem
-              ]}
-              onPress={() => {
-                setActiveTab(item.id);
-                setActiveModal(item.id);
-              }}
-            >
-              <View style={[
-                styles.iconContainer,
-                { backgroundColor: activeTab === item.id ? item.color : 'transparent' }
-              ]}>
-                <item.icon 
-                  size={20} 
-                  color={activeTab === item.id ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)')} 
-                />
-              </View>
-              <Text style={[
-                styles.footerLabel,
-                isDark && styles.darkFooterLabel,
-                activeTab === item.id && { color: item.color, fontWeight: '600' }
-              ]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        {/* Main Navigation Section */}
+        <View style={styles.navigationSection}>
+          <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Navigate</Text>
+          <View style={styles.navigationContent}>
+            {navigationItems.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.navItem,
+                  activeRoute === item.id && styles.activeNavItem
+                ]}
+                onPress={() => handleNavigation(item.route)}
+              >
+                <View style={[
+                  styles.navIconContainer,
+                  { backgroundColor: activeRoute === item.id ? item.color : 'transparent' }
+                ]}>
+                  <item.icon 
+                    size={18} 
+                    color={activeRoute === item.id ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)')} 
+                  />
+                </View>
+                <Text style={[
+                  styles.navLabel,
+                  isDark && styles.darkNavLabel,
+                  activeRoute === item.id && { color: item.color, fontWeight: '600' }
+                ]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Mental Health Tools Section */}
+        <View style={styles.mentalHealthSection}>
+          <Text style={[styles.sectionTitle, isDark && styles.darkSectionTitle]}>Mental Health Tools</Text>
+          <View style={styles.mentalHealthContent}>
+            {mentalHealthItems.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.mentalHealthItem}
+                onPress={() => setActiveModal(item.id)}
+              >
+                <View style={[styles.mentalHealthIconContainer, { backgroundColor: item.color + '20' }]}>
+                  <item.icon size={16} color={item.color} />
+                </View>
+                <Text style={[styles.mentalHealthLabel, isDark && styles.darkMentalHealthLabel]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
 
@@ -527,43 +570,91 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 24,
     elevation: 20,
-    paddingTop: 16,
+    paddingTop: 20,
     paddingBottom: 32,
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
   },
   darkFooter: {
     backgroundColor: '#1E293B',
     borderTopColor: '#334155',
   },
-  footerContent: {
+  navigationSection: {
+    marginBottom: 20,
+  },
+  mentalHealthSection: {
+    // No additional margin needed
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  darkSectionTitle: {
+    color: '#94A3B8',
+  },
+  navigationContent: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
+    paddingVertical: 8,
   },
-  footerItem: {
+  navItem: {
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 4,
     minWidth: 60,
   },
-  activeFooterItem: {
+  activeNavItem: {
     transform: [{ scale: 1.05 }],
   },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  navIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
-  footerLabel: {
+  navLabel: {
     fontSize: 10,
     fontFamily: 'Inter-SemiBold',
     color: '#64748B',
     textAlign: 'center',
   },
-  darkFooterLabel: {
+  darkNavLabel: {
+    color: '#94A3B8',
+  },
+  mentalHealthContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  mentalHealthItem: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    minWidth: 60,
+  },
+  mentalHealthIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  mentalHealthLabel: {
+    fontSize: 9,
+    fontFamily: 'Inter-Medium',
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  darkMentalHealthLabel: {
     color: '#94A3B8',
   },
   modalOverlay: {

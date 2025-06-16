@@ -22,14 +22,7 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarStyle: [
-            styles.tabBar,
-            isDark && styles.darkTabBar
-          ],
-          tabBarActiveTintColor: '#10B981',
-          tabBarInactiveTintColor: isDark ? '#6B7280' : '#9CA3AF',
-          tabBarLabelStyle: styles.tabLabel,
-          tabBarItemStyle: styles.tabItem,
+          tabBarStyle: { display: 'none' }, // Hide the default tab bar
         }}>
         <Tabs.Screen
           name="index"
@@ -85,7 +78,7 @@ export default function TabLayout() {
         />
       </Tabs>
       
-      {/* Mental Health Footer */}
+      {/* Single Unified Mental Health Footer */}
       <MentalHealthFooter />
     </View>
   );
@@ -94,33 +87,5 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  tabBar: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 0,
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    height: Platform.OS === 'ios' ? 92 : 68,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginBottom: 120, // Add space for mental health footer
-  },
-  darkTabBar: {
-    backgroundColor: '#1F2937',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-  },
-  tabLabel: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 11,
-    marginTop: 4,
-  },
-  tabItem: {
-    paddingTop: 4,
   },
 });
