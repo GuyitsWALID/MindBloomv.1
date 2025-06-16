@@ -564,7 +564,40 @@ export function MentalHealthFooter() {
   return (
     <>
       <View style={[styles.footer, isDark && styles.darkFooter]}>
-        {/* Main Navigation Section */}
+        {/* Expandable Mental Health Tools Section - NOW AT TOP */}
+        <View style={styles.mentalHealthSection}>
+          <TouchableOpacity style={styles.expandToggle} onPress={toggleExpansion}>
+            <Text style={[styles.expandToggleText, isDark && styles.darkExpandToggleText]}>
+              🧠 Mental Health Tools
+            </Text>
+            {isExpanded ? (
+              <ChevronDown size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+            ) : (
+              <ChevronUp size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+            )}
+          </TouchableOpacity>
+
+          <Animated.View style={[styles.expandableContent, { height: expandedHeight }]}>
+            <View style={styles.mentalHealthContent}>
+              {mentalHealthItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.mentalHealthItem}
+                  onPress={() => setActiveModal(item.id)}
+                >
+                  <View style={[styles.mentalHealthIconContainer, { backgroundColor: item.color + '20' }]}>
+                    <item.icon size={16} color={item.color} />
+                  </View>
+                  <Text style={[styles.mentalHealthLabel, isDark && styles.darkMentalHealthLabel]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        </View>
+
+        {/* Main Navigation Section - NOW BELOW */}
         <View style={styles.navigationSection}>
           <View style={styles.navigationContent}>
             {navigationItems.map((item) => (
@@ -595,39 +628,6 @@ export function MentalHealthFooter() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-
-        {/* Expandable Mental Health Tools Section */}
-        <View style={styles.mentalHealthSection}>
-          <TouchableOpacity style={styles.expandToggle} onPress={toggleExpansion}>
-            <Text style={[styles.expandToggleText, isDark && styles.darkExpandToggleText]}>
-              Mental Health Tools
-            </Text>
-            {isExpanded ? (
-              <ChevronDown size={16} color={isDark ? '#94A3B8' : '#64748B'} />
-            ) : (
-              <ChevronUp size={16} color={isDark ? '#94A3B8' : '#64748B'} />
-            )}
-          </TouchableOpacity>
-
-          <Animated.View style={[styles.expandableContent, { height: expandedHeight }]}>
-            <View style={styles.mentalHealthContent}>
-              {mentalHealthItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.mentalHealthItem}
-                  onPress={() => setActiveModal(item.id)}
-                >
-                  <View style={[styles.mentalHealthIconContainer, { backgroundColor: item.color + '20' }]}>
-                    <item.icon size={16} color={item.color} />
-                  </View>
-                  <Text style={[styles.mentalHealthLabel, isDark && styles.darkMentalHealthLabel]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Animated.View>
         </View>
       </View>
 
@@ -664,10 +664,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderTopColor: '#334155',
   },
-  navigationSection: {
+  mentalHealthSection: {
     marginBottom: 16,
   },
-  mentalHealthSection: {
+  navigationSection: {
     // No additional margin needed
   },
   navigationContent: {
@@ -708,18 +708,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(148, 163, 184, 0.1)',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
     borderRadius: 12,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
   },
   expandToggleText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Inter-SemiBold',
-    color: '#64748B',
+    color: '#3B82F6',
     marginRight: 8,
   },
   darkExpandToggleText: {
-    color: '#94A3B8',
+    color: '#60A5FA',
   },
   expandableContent: {
     overflow: 'hidden',
