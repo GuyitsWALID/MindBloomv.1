@@ -63,6 +63,7 @@ export function MentalHealthFooter() {
   const { user } = useAuth();
   const { isDark } = useTheme();
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('mood');
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
   const [symptoms, setSymptoms] = useState<SymptomEntry[]>([]);
   const [medications, setMedications] = useState<MedicationReminder[]>([]);
@@ -468,29 +469,38 @@ export function MentalHealthFooter() {
   return (
     <>
       <View style={[styles.footer, isDark && styles.darkFooter]}>
-        <LinearGradient
-          colors={isDark ? ['#374151', '#1F2937'] : ['#FFFFFF', '#F9FAFB']}
-          style={styles.footerGradient}
-        >
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.footerContent}
-          >
-            {footerItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.footerItem, isDark && styles.darkFooterItem]}
-                onPress={() => setActiveModal(item.id)}
-              >
-                <View style={[styles.iconContainer, { backgroundColor: item.color + '20' }]}>
-                  <item.icon size={20} color={item.color} />
-                </View>
-                <Text style={[styles.footerLabel, isDark && styles.darkText]}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </LinearGradient>
+        <View style={styles.footerContent}>
+          {footerItems.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.footerItem,
+                activeTab === item.id && styles.activeFooterItem
+              ]}
+              onPress={() => {
+                setActiveTab(item.id);
+                setActiveModal(item.id);
+              }}
+            >
+              <View style={[
+                styles.iconContainer,
+                { backgroundColor: activeTab === item.id ? item.color : 'transparent' }
+              ]}>
+                <item.icon 
+                  size={20} 
+                  color={activeTab === item.id ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)')} 
+                />
+              </View>
+              <Text style={[
+                styles.footerLabel,
+                isDark && styles.darkFooterLabel,
+                activeTab === item.id && { color: item.color, fontWeight: '600' }
+              ]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       {renderMoodModal()}
@@ -507,54 +517,54 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
+    shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.1,
-    shadowRadius: 20,
+    shadowRadius: 24,
     elevation: 20,
-  },
-  darkFooter: {
-    backgroundColor: '#374151',
-  },
-  footerGradient: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     paddingTop: 16,
     paddingBottom: 32,
+    paddingHorizontal: 8,
+  },
+  darkFooter: {
+    backgroundColor: '#1E293B',
+    borderTopColor: '#334155',
   },
   footerContent: {
-    paddingHorizontal: 16,
-    gap: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
   },
   footerItem: {
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    minWidth: 80,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    minWidth: 60,
   },
-  darkFooterItem: {
-    backgroundColor: 'rgba(55, 65, 81, 0.8)',
+  activeFooterItem: {
+    transform: [{ scale: 1.05 }],
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   footerLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
+    color: '#64748B',
+    textAlign: 'center',
   },
-  darkText: {
-    color: '#F9FAFB',
+  darkFooterLabel: {
+    color: '#94A3B8',
   },
   modalOverlay: {
     flex: 1,
@@ -583,6 +593,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Inter-Bold',
     color: '#1F2937',
+  },
+  darkText: {
+    color: '#F9FAFB',
   },
   sectionLabel: {
     fontSize: 16,
