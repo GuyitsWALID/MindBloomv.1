@@ -10,6 +10,7 @@ declare global {
       STRIPE_PRICE_ID_MONTHLY: string;
       STRIPE_PRICE_ID_YEARLY: string;
       DOMAIN: string;
+      ELEVENLABS_API_KEY: string;
     }
   }
 }
