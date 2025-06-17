@@ -58,6 +58,7 @@ function RootLayoutContent() {
 }
 
 export default function RootLayout() {
+  useFrameworkReady();
   return (
     <SentryErrorBoundary
       fallback={({ error, resetError }) => (
