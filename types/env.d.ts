@@ -11,6 +11,10 @@ declare global {
       STRIPE_PRICE_ID_YEARLY: string;
       DOMAIN: string;
       ELEVENLABS_API_KEY: string;
+      SENTRY_DSN: string;
+      SENTRY_ORG: string;
+      SENTRY_PROJECT: string;
+      SENTRY_AUTH_TOKEN: string;
     }
   }
 }
