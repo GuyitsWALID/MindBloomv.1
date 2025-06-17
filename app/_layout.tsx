@@ -8,6 +8,23 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { useFrameworkReady } from '@/hooks/useFrameworkReady'
 import { initSentry, SentryErrorBoundary } from '@/lib/sentry';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://fb8dc6a3baedf77b04e015c54bfc38e1@o4509513006972928.ingest.de.sentry.io/4509513274556496',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 declare global {
   interface Window {
@@ -57,7 +74,7 @@ function RootLayoutContent() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   useFrameworkReady();
   return (
     <SentryErrorBoundary
@@ -100,4 +117,4 @@ export default function RootLayout() {
       <RootLayoutContent />
     </SentryErrorBoundary>
   );
-}
+});
