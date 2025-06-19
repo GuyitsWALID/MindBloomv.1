@@ -12,7 +12,6 @@
     "@expo-google-fonts/inter": "^0.2.3",
     "@expo/vector-icons": "^14.1.0",
     "@lucide/lab": "^0.1.2",
-    "@sentry/react-native": "~6.2.0",
     "@supabase/supabase-js": "^2.39.0",
     "expo": "^53.0.0",
     "expo-blur": "~14.1.3",

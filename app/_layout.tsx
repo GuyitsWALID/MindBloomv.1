@@ -7,10 +7,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { useFrameworkReady } from '@/hooks/useFrameworkReady'
-import { SentryErrorBoundary, initSentry } from '@/lib/sentry';
-
-// Initialize Sentry as early as possible
-initSentry();
 
 declare global {
   interface Window {
@@ -59,45 +55,5 @@ function RootLayoutContent() {
 
 export default function RootLayout() {
   useFrameworkReady();
-  return (
-    <SentryErrorBoundary
-      fallback={({ error, resetError }) => (
-        <div style={{ 
-          padding: 20, 
-          textAlign: 'center',
-          backgroundColor: '#fee2e2',
-          color: '#dc2626',
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
-          <h1>Something went wrong</h1>
-          <p>We're sorry, but something unexpected happened.</p>
-          <details style={{ marginTop: 10, marginBottom: 20 }}>
-            <summary>Error details</summary>
-            <pre style={{ textAlign: 'left', fontSize: 12, marginTop: 10 }}>
-              {error?.toString()}
-            </pre>
-          </details>
-          <button 
-            onClick={resetError}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#dc2626',
-              color: 'white',
-              border: 'none',
-              borderRadius: 5,
-              cursor: 'pointer'
-            }}
-          >
-            Try again
-          </button>
-        </div>
-      )}
-    >
-      <RootLayoutContent />
-    </SentryErrorBoundary>
-  );
+  return <RootLayoutContent />;
 }
