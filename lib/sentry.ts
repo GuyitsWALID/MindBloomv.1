@@ -7,6 +7,52 @@ export const routingInstrumentation = new Sentry.ReactNativeTracing();
 // Custom error boundary component
 export const SentryErrorBoundary = Sentry.withErrorBoundary;
 
+// Initialize Sentry
+export const initSentry = () => {
+  Sentry.init({
+    dsn: 'https://fb8dc6a3baedf77b04e015c54bfc38e1@o4509513006972928.ingest.de.sentry.io/4509513274556496',
+    debug: __DEV__,
+    environment: __DEV__ ? 'development' : 'production',
+    
+    // Adds more context data to events (IP address, cookies, user, etc.)
+    sendDefaultPii: true,
+
+    // Performance monitoring
+    tracesSampleRate: 1.0,
+    
+    // Session tracking
+    enableAutoSessionTracking: true,
+
+    // Configure Session Replay
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1,
+    
+    // Integrations with proper React Navigation setup
+    integrations: [
+      Sentry.mobileReplayIntegration(),
+      routingInstrumentation, // Pass the instance directly, not as new constructor
+    ],
+
+    // Release tracking
+    release: '1.0.0',
+    
+    // Custom tags
+    initialScope: {
+      tags: {
+        component: 'mindbloom-app',
+      },
+    },
+
+    // Filter out development errors in production
+    beforeSend(event, hint) {
+      if (__DEV__) {
+        console.log('Sentry Event:', event);
+      }
+      return event;
+    },
+  });
+};
+
 // Performance monitoring helpers
 export const startTransaction = (name: string, op: string) => {
   return Sentry.startTransaction({ name, op });
