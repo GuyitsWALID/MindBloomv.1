@@ -12,6 +12,7 @@
     "@expo-google-fonts/inter": "^0.2.3",
     "@expo/vector-icons": "^14.1.0",
     "@lucide/lab": "^0.1.2",
+    "@sentry/react-native": "^5.15.2",
     "@supabase/supabase-js": "^2.39.0",
     "expo": "^53.0.0",
     "expo-blur": "~14.1.3",
@@ -40,6 +41,7 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "^0.20.0",
     "react-native-webview": "13.13.5",
+    "sentry-expo": "~8.0.0",
     "tslib": "^2.6.2"
   },
   "devDependencies": {
