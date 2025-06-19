@@ -1,51 +1,8 @@
 import * as Sentry from '@sentry/react-native';
 import { Platform } from 'react-native';
 
-// Initialize Sentry
-export const initSentry = () => {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    debug: __DEV__, // Enable debug mode in development
-    environment: __DEV__ ? 'development' : 'production',
-    
-    // Performance monitoring
-    tracesSampleRate: 1.0, // Capture 100% of transactions for performance monitoring
-    
-    // Session tracking
-    enableAutoSessionTracking: true,
-    
-    // Native crash handling (mobile only)
-    enableNativeCrashHandling: Platform.OS !== 'web',
-    
-    // Integrations
-    integrations: [
-      new Sentry.ReactNativeTracing({
-        // Routing instrumentation for React Navigation
-        routingInstrumentation: new Sentry.ReactNavigationInstrumentation(),
-      }),
-    ],
-    
-    // Release tracking
-    release: '1.0.0',
-    
-    // User context
-    beforeSend(event, hint) {
-      // Filter out development errors in production
-      if (__DEV__) {
-        console.log('Sentry Event:', event);
-      }
-      return event;
-    },
-    
-    // Custom tags
-    initialScope: {
-      tags: {
-        platform: Platform.OS,
-        component: 'mindbloom-app',
-      },
-    },
-  });
-};
+// Create the routing instrumentation for React Navigation tracking
+export const routingInstrumentation = new Sentry.ReactNativeTracing();
 
 // Custom error boundary component
 export const SentryErrorBoundary = Sentry.withErrorBoundary;

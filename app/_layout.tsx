@@ -7,23 +7,53 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { useFrameworkReady } from '@/hooks/useFrameworkReady'
-import { initSentry, SentryErrorBoundary } from '@/lib/sentry';
+import { SentryErrorBoundary, routingInstrumentation } from '@/lib/sentry';
 import * as Sentry from '@sentry/react-native';
 
+// Initialize Sentry with proper configuration
 Sentry.init({
   dsn: 'https://fb8dc6a3baedf77b04e015c54bfc38e1@o4509513006972928.ingest.de.sentry.io/4509513274556496',
-
+  debug: __DEV__,
+  environment: __DEV__ ? 'development' : 'production',
+  
   // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
+
+  // Performance monitoring
+  tracesSampleRate: 1.0,
+  
+  // Session tracking
+  enableAutoSessionTracking: true,
 
   // Configure Session Replay
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1,
-  integrations: [Sentry.mobileReplayIntegration()],
+  
+  // Integrations with proper React Navigation setup
+  integrations: [
+    Sentry.mobileReplayIntegration(),
+    new Sentry.ReactNativeTracing({
+      routingInstrumentation,
+    }),
+  ],
 
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
+  // Release tracking
+  release: '1.0.0',
+  
+  // Custom tags
+  initialScope: {
+    tags: {
+      component: 'mindbloom-app',
+    },
+  },
+
+  // Filter out development errors in production
+  beforeSend(event, hint) {
+    if (__DEV__) {
+      console.log('Sentry Event:', event);
+    }
+    return event;
+  },
 });
 
 declare global {
@@ -31,9 +61,6 @@ declare global {
     frameworkReady?: () => void;
   }
 }
-
-// Initialize Sentry as early as possible
-initSentry();
 
 SplashScreen.preventAutoHideAsync();
 
