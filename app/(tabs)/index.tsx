@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Brain, Sparkles, MessageCircle, Heart, Zap, Sun, Moon, Mic, MicOff, Volume2, VolumeX, BookOpen, Calendar, Target } from 'lucide-react-native';
+import { Audio } from 'expo-av';
 import { MoodSelector } from '@/components/MoodSelector';
 import { WellnessCard } from '@/components/WellnessCard';
 import { AIInsight } from '@/components/AIInsight';
@@ -79,7 +80,7 @@ export default function HomeScreen() {
   const [isVoiceSupported, setIsVoiceSupported] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | Audio.Sound | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -89,7 +90,7 @@ export default function HomeScreen() {
   }, [user]);
 
   useEffect(() => {
-    // Initialize speech recognition for web
+    // Initialize speech recognition only for web
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
@@ -117,6 +118,9 @@ export default function HomeScreen() {
         setRecognition(recognitionInstance);
         setIsVoiceSupported(true);
       }
+    } else {
+      // For mobile platforms, voice recognition is not supported without custom development build
+      setIsVoiceSupported(false);
     }
   }, []);
 
@@ -175,19 +179,23 @@ export default function HomeScreen() {
     return moodValues[mood] || 6;
   };
 
-  const startVoiceRecognition = () => {
-    if (!recognition || !isVoiceSupported) {
-      Alert.alert('Voice Not Supported', 'Voice recognition is not available on this device.');
+  const startVoiceRecognition = async () => {
+    if (!isVoiceSupported) {
+      Alert.alert('Voice Not Supported', 'Voice recognition requires a custom development build for mobile devices.');
       return;
     }
 
     if (isListening) {
-      recognition.stop();
+      if (Platform.OS === 'web' && recognition) {
+        recognition.stop();
+      }
       setIsListening(false);
     } else {
       try {
-        recognition.start();
-        setIsListening(true);
+        if (Platform.OS === 'web' && recognition) {
+          recognition.start();
+          setIsListening(true);
+        }
       } catch (error) {
         console.error('Error starting voice recognition:', error);
         Alert.alert('Voice Error', 'Could not start voice recognition. Please try again.');
@@ -196,77 +204,86 @@ export default function HomeScreen() {
   };
 
   const speakText = async (text: string) => {
-    if (!voiceEnabled || Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (!voiceEnabled) return;
 
     try {
       // Stop any current audio
-      stopSpeaking();
+      await stopSpeaking();
       
       setIsSpeaking(true);
 
-      // Try ElevenLabs API first with deep, seductive Bateman-like voice settings
-      try {
-        const response = await fetch('/api/elevenlabs-tts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text,
-            voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam voice - deep and commanding
-            voice_settings: {
-              stability: 0.85,        // Very high stability for controlled, deliberate speech
-              similarity_boost: 0.35, // Lower for more natural, less artificial variation
-              style: 0.45,           // Enhanced style for sophistication and depth
-              use_speaker_boost: true // Enhanced clarity and presence
-            }
-          }),
-        });
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        // Web implementation with ElevenLabs API
+        try {
+          const apiUrl = process.env.EXPO_PUBLIC_DOMAIN 
+            ? `${process.env.EXPO_PUBLIC_DOMAIN}/api/elevenlabs-tts`
+            : '/api/elevenlabs-tts';
 
-        if (response.ok) {
-          // Get the audio as array buffer
-          const audioArrayBuffer = await response.arrayBuffer();
-          
-          // Create a proper blob with explicit MIME type
-          const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
-          const audioUrl = URL.createObjectURL(audioBlob);
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text,
+              voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam voice - deep and commanding
+              voice_settings: {
+                stability: 0.85,        // Very high stability for controlled, deliberate speech
+                similarity_boost: 0.35, // Lower for more natural, less artificial variation
+                style: 0.45,           // Enhanced style for sophistication and depth
+                use_speaker_boost: true // Enhanced clarity and presence
+              }
+            }),
+          });
 
-          // Create and configure audio element
-          const audio = new Audio();
-          setCurrentAudio(audio);
+          if (response.ok) {
+            // Get the audio as array buffer
+            const audioArrayBuffer = await response.arrayBuffer();
+            
+            // Create a proper blob with explicit MIME type
+            const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
 
-          // Set up event handlers before setting src
-          audio.onended = () => {
-            setIsSpeaking(false);
-            setCurrentAudio(null);
-            URL.revokeObjectURL(audioUrl);
-          };
+            // Create and configure audio element
+            const audio = new Audio();
+            setCurrentAudio(audio);
 
-          audio.onerror = (e) => {
-            console.warn('ElevenLabs audio failed, falling back to browser TTS');
-            setIsSpeaking(false);
-            setCurrentAudio(null);
-            URL.revokeObjectURL(audioUrl);
-            // Fallback to browser TTS
-            fallbackToWebSpeech(text);
-          };
+            // Set up event handlers before setting src
+            audio.onended = () => {
+              setIsSpeaking(false);
+              setCurrentAudio(null);
+              URL.revokeObjectURL(audioUrl);
+            };
 
-          audio.oncanplaythrough = () => {
-            audio.play().catch(() => {
-              console.warn('Audio play failed, falling back to browser TTS');
+            audio.onerror = (e) => {
+              console.warn('ElevenLabs audio failed, falling back to browser TTS');
+              setIsSpeaking(false);
+              setCurrentAudio(null);
+              URL.revokeObjectURL(audioUrl);
+              // Fallback to browser TTS
               fallbackToWebSpeech(text);
-            });
-          };
+            };
 
-          // Set the source and load
-          audio.src = audioUrl;
-          audio.load();
-        } else {
-          throw new Error('ElevenLabs API failed');
+            audio.oncanplaythrough = () => {
+              audio.play().catch(() => {
+                console.warn('Audio play failed, falling back to browser TTS');
+                fallbackToWebSpeech(text);
+              });
+            };
+
+            // Set the source and load
+            audio.src = audioUrl;
+            audio.load();
+          } else {
+            throw new Error('ElevenLabs API failed');
+          }
+        } catch (error) {
+          console.warn('ElevenLabs TTS failed, using browser fallback:', error);
+          fallbackToWebSpeech(text);
         }
-      } catch (error) {
-        console.warn('ElevenLabs TTS failed, using browser fallback:', error);
-        fallbackToWebSpeech(text);
+      } else {
+        // Mobile implementation - fallback to native TTS only
+        fallbackToNativeTTS(text);
       }
     } catch (error) {
       console.error('Error with text-to-speech:', error);
@@ -276,7 +293,7 @@ export default function HomeScreen() {
   };
 
   const fallbackToWebSpeech = (text: string) => {
-    if (window.speechSynthesis) {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.speechSynthesis) {
       // Cancel any ongoing speech
       window.speechSynthesis.cancel();
       
@@ -300,19 +317,38 @@ export default function HomeScreen() {
     }
   };
 
-  const stopSpeaking = () => {
-    // Stop HTML audio
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-      setCurrentAudio(null);
+  const fallbackToNativeTTS = (text: string) => {
+    // For mobile platforms, use a simple text display instead of TTS
+    // since ElevenLabs API is not accessible and native TTS requires additional setup
+    Alert.alert('AI Insight', text);
+    setIsSpeaking(false);
+  };
+
+  const stopSpeaking = async () => {
+    if (Platform.OS === 'web') {
+      // Stop HTML audio
+      if (currentAudio && currentAudio instanceof HTMLAudioElement) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      
+      // Stop browser speech synthesis
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    } else {
+      // Stop expo-av sound
+      if (currentAudio && typeof (currentAudio as any).stopAsync === 'function') {
+        try {
+          await (currentAudio as Audio.Sound).stopAsync();
+          await (currentAudio as Audio.Sound).unloadAsync();
+        } catch (error) {
+          console.warn('Error stopping mobile audio:', error);
+        }
+      }
     }
     
-    // Stop browser speech synthesis
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    
+    setCurrentAudio(null);
     setIsSpeaking(false);
   };
 
@@ -429,7 +465,7 @@ export default function HomeScreen() {
       
       // Speak the AI insight if voice is enabled
       if (voiceEnabled) {
-        speakText(insight);
+        await speakText(insight);
       }
       
       // Reload dashboard data and mood chart

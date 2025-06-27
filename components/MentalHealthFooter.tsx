@@ -5,7 +5,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, Activity, TrendingUp, BookOpen, Phone, Wind, Moon, Pill, Plus, X, Calendar, Clock, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Smile, Frown, Meh, Zap, Cloud, Sun, Chrome as Home, Flower, User, Crown, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { Mic, MicOff } from 'lucide-react-native';
 import { Audio } from 'expo-av';
-import Voice from '@react-native-voice/voice';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { moodService, journalService } from '@/lib/database';
@@ -117,7 +116,7 @@ export function MentalHealthFooter() {
   }, [isExpanded]);
 
   useEffect(() => {
-    // Initialize speech recognition based on platform
+    // Initialize speech recognition only for web
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
@@ -146,29 +145,8 @@ export function MentalHealthFooter() {
         setIsVoiceSupported(true);
       }
     } else {
-      // Initialize react-native-voice for mobile
-      Voice.onSpeechResults = (e) => {
-        if (e.value && e.value.length > 0) {
-          setNotes(prev => prev + ' ' + e.value[0]);
-          setIsListening(false);
-        }
-      };
-
-      Voice.onSpeechError = (e) => {
-        console.error('Voice error:', e);
-        setIsListening(false);
-        Alert.alert('Voice Recognition Error', 'Please try again or type your message.');
-      };
-
-      Voice.onSpeechEnd = () => {
-        setIsListening(false);
-      };
-
-      setIsVoiceSupported(true);
-
-      return () => {
-        Voice.destroy().then(Voice.removeAllListeners);
-      };
+      // For mobile platforms, voice recognition is not supported without custom development build
+      setIsVoiceSupported(false);
     }
   }, []);
 
@@ -197,29 +175,21 @@ export function MentalHealthFooter() {
 
   const startVoiceRecognition = async () => {
     if (!isVoiceSupported) {
-      Alert.alert('Voice Not Supported', 'Voice recognition is not available on this device.');
+      Alert.alert('Voice Not Supported', 'Voice recognition requires a custom development build for mobile devices.');
       return;
     }
 
     if (isListening) {
       if (Platform.OS === 'web' && recognition) {
         recognition.stop();
-      } else {
-        try {
-          await Voice.stop();
-        } catch (error) {
-          console.error('Error stopping voice recognition:', error);
-        }
       }
       setIsListening(false);
     } else {
       try {
         if (Platform.OS === 'web' && recognition) {
           recognition.start();
-        } else {
-          await Voice.start('en-US');
+          setIsListening(true);
         }
-        setIsListening(true);
       } catch (error) {
         console.error('Error starting voice recognition:', error);
         Alert.alert('Voice Error', 'Could not start voice recognition. Please try again.');
@@ -239,7 +209,11 @@ export function MentalHealthFooter() {
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         // Web implementation with ElevenLabs API
         try {
-          const response = await fetch('/api/elevenlabs-tts', {
+          const apiUrl = process.env.EXPO_PUBLIC_DOMAIN 
+            ? `${process.env.EXPO_PUBLIC_DOMAIN}/api/elevenlabs-tts`
+            : '/api/elevenlabs-tts';
+
+          const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -302,54 +276,8 @@ export function MentalHealthFooter() {
           fallbackToWebSpeech(text);
         }
       } else {
-        // Mobile implementation with expo-av
-        try {
-          // First try to get audio from ElevenLabs API
-          const response = await fetch('/api/elevenlabs-tts', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              text,
-              voiceId: 'pNInz6obpgDQGcFmaJgB',
-              voice_settings: {
-                stability: 0.85,
-                similarity_boost: 0.35,
-                style: 0.45,
-                use_speaker_boost: true
-              }
-            }),
-          });
-
-          if (response.ok) {
-            const audioArrayBuffer = await response.arrayBuffer();
-            const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-
-            const { sound } = await Audio.Sound.createAsync(
-              { uri: audioUrl },
-              { shouldPlay: true, volume: 0.8 }
-            );
-
-            setCurrentAudio(sound);
-
-            sound.setOnPlaybackStatusUpdate((status) => {
-              if (status.isLoaded && status.didJustFinish) {
-                setIsSpeaking(false);
-                setCurrentAudio(null);
-                sound.unloadAsync();
-                URL.revokeObjectURL(audioUrl);
-              }
-            });
-          } else {
-            throw new Error('ElevenLabs API failed');
-          }
-        } catch (error) {
-          console.warn('Mobile TTS failed:', error);
-          setIsSpeaking(false);
-          setCurrentAudio(null);
-        }
+        // Mobile implementation - fallback to native TTS only
+        fallbackToNativeTTS(text);
       }
     } catch (error) {
       console.error('Error with text-to-speech:', error);
@@ -381,6 +309,13 @@ export function MentalHealthFooter() {
     } else {
       setIsSpeaking(false);
     }
+  };
+
+  const fallbackToNativeTTS = (text: string) => {
+    // For mobile platforms, use a simple text display instead of TTS
+    // since ElevenLabs API is not accessible and native TTS requires additional setup
+    Alert.alert('AI Insight', text);
+    setIsSpeaking(false);
   };
 
   const stopSpeaking = async () => {
@@ -1111,6 +1046,9 @@ const styles = StyleSheet.create({
   },
   darkText: {
     color: '#F9FAFB',
+  },
+  darkSubtitle: {
+    color: '#9CA3AF',
   },
   sectionLabel: {
     fontSize: 16,
