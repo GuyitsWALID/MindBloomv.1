@@ -12,17 +12,18 @@ export async function POST(request: Request) {
       return Response.json({ error: 'ElevenLabs API key not configured' }, { status: 500 });
     }
 
-    // Optimized voice settings for soothing, comforting, non-robotic speech
+    // Optimized voice settings for deep, seductive Bateman-like voice
+    // Still soothing and therapeutic but with commanding presence
     const defaultVoiceSettings = {
-      stability: 0.71,           // Higher stability for smoother, less erratic speech
-      similarity_boost: 0.5,     // Lower similarity for more natural variation
-      style: 0.21,              // Slight style enhancement for warmth
-      use_speaker_boost: true    // Enhanced clarity
+      stability: 0.85,           // Very high stability for controlled, deliberate speech
+      similarity_boost: 0.35,    // Lower for more natural, less artificial variation
+      style: 0.45,              // Enhanced style for sophistication and depth
+      use_speaker_boost: true    // Enhanced clarity and presence
     };
 
     const finalVoiceSettings = { ...defaultVoiceSettings, ...voice_settings };
 
-    // Call ElevenLabs API with optimized settings
+    // Call ElevenLabs API with Bateman-inspired settings
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {

@@ -164,7 +164,7 @@ export default function JournalScreen() {
       
       setIsSpeaking(true);
 
-      // Try ElevenLabs API first with optimized soothing voice settings
+      // Try ElevenLabs API first with deep, seductive Bateman-like voice settings
       try {
         const response = await fetch('/api/elevenlabs-tts', {
           method: 'POST',
@@ -173,12 +173,12 @@ export default function JournalScreen() {
           },
           body: JSON.stringify({
             text,
-            voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam voice - warm and comforting
+            voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam voice - deep and commanding
             voice_settings: {
-              stability: 0.71,        // Higher stability for smoother speech
-              similarity_boost: 0.5,  // Lower for more natural variation
-              style: 0.21,           // Slight warmth enhancement
-              use_speaker_boost: true // Enhanced clarity
+              stability: 0.85,        // Very high stability for controlled, deliberate speech
+              similarity_boost: 0.35, // Lower for more natural, less artificial variation
+              style: 0.45,           // Enhanced style for sophistication and depth
+              use_speaker_boost: true // Enhanced clarity and presence
             }
           }),
         });
@@ -241,10 +241,10 @@ export default function JournalScreen() {
       window.speechSynthesis.cancel();
       
       const utterance = new SpeechSynthesisUtterance(text);
-      // Optimize browser TTS for more soothing delivery
-      utterance.rate = 0.75;    // Slightly slower for calmness
-      utterance.pitch = 0.9;    // Slightly lower pitch for warmth
-      utterance.volume = 0.8;   // Comfortable volume
+      // Optimize browser TTS for deep, commanding delivery
+      utterance.rate = 0.65;    // Slower for more deliberate, controlled speech
+      utterance.pitch = 0.75;   // Lower pitch for deeper, more authoritative voice
+      utterance.volume = 0.9;   // Higher volume for presence
       
       utterance.onend = () => {
         setIsSpeaking(false);
