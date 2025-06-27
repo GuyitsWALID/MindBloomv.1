@@ -33,11 +33,38 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
+// Custom fetch interceptor to handle refresh token errors
+const customFetch = async (url: RequestInfo | URL, options?: RequestInit) => {
+  const response = await fetch(url, options);
+  
+  // Check if this is a Supabase auth request that failed with refresh token error
+  if (!response.ok && response.status === 400) {
+    try {
+      const errorData = await response.clone().json();
+      if (errorData.code === 'refresh_token_not_found') {
+        // Clear the invalid token from storage
+        if (Platform.OS === 'web') {
+          localStorage.removeItem('sb-qyjflaqocyliwbqloukn-auth-token');
+        } else {
+          await SecureStore.deleteItemAsync('sb-qyjflaqocyliwbqloukn-auth-token');
+        }
+      }
+    } catch (error) {
+      // Ignore JSON parsing errors
+    }
+  }
+  
+  return response;
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: ExpoSecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+  },
+  global: {
+    fetch: customFetch,
   },
 });
