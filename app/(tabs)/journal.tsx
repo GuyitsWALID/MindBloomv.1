@@ -303,7 +303,7 @@ export default function JournalScreen() {
           await (currentAudio as Audio.Sound).stopAsync();
           await (currentAudio as Audio.Sound).unloadAsync();
         } catch (error) {
-          console.warn('Error stopping mobile audio:', error);
+          console.warn('Error stopping background audio:', error);
         }
       }
     }
@@ -331,7 +331,7 @@ export default function JournalScreen() {
       ].join('\n');
 
       // For web, create download
-      if (typeof window !== 'undefined') {
+      if (Platform.OS === 'web') {
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');

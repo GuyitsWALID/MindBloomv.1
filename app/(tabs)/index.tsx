@@ -343,7 +343,7 @@ export default function HomeScreen() {
           await (currentAudio as Audio.Sound).stopAsync();
           await (currentAudio as Audio.Sound).unloadAsync();
         } catch (error) {
-          console.warn('Error stopping mobile audio:', error);
+          console.warn('Error stopping background audio:', error);
         }
       }
     }
