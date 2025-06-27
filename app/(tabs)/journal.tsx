@@ -164,7 +164,7 @@ export default function JournalScreen() {
       
       setIsSpeaking(true);
 
-      // Try ElevenLabs API first
+      // Try ElevenLabs API first with optimized soothing voice settings
       try {
         const response = await fetch('/api/elevenlabs-tts', {
           method: 'POST',
@@ -173,12 +173,12 @@ export default function JournalScreen() {
           },
           body: JSON.stringify({
             text,
-            voiceId: 'pNInz6obpgDQGcFmaJgB',
+            voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam voice - warm and comforting
             voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              style: 0.0,
-              use_speaker_boost: true
+              stability: 0.71,        // Higher stability for smoother speech
+              similarity_boost: 0.5,  // Lower for more natural variation
+              style: 0.21,           // Slight warmth enhancement
+              use_speaker_boost: true // Enhanced clarity
             }
           }),
         });
@@ -241,9 +241,10 @@ export default function JournalScreen() {
       window.speechSynthesis.cancel();
       
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.8;
-      utterance.pitch = 1;
-      utterance.volume = 0.8;
+      // Optimize browser TTS for more soothing delivery
+      utterance.rate = 0.75;    // Slightly slower for calmness
+      utterance.pitch = 0.9;    // Slightly lower pitch for warmth
+      utterance.volume = 0.8;   // Comfortable volume
       
       utterance.onend = () => {
         setIsSpeaking(false);

@@ -7,22 +7,22 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Text is required' }, { status: 400 });
     }
     
-    const apiKey = process.env.ELEVENLABS_API_KEY;
+    const apiKey = 'sk_3b7193bfa31edeb218fadeb768858e208e4cf57c876d18a3';
     if (!apiKey) {
       return Response.json({ error: 'ElevenLabs API key not configured' }, { status: 500 });
     }
 
-    // Default voice settings for natural speech
+    // Optimized voice settings for soothing, comforting, non-robotic speech
     const defaultVoiceSettings = {
-      stability: 0.5,
-      similarity_boost: 0.75,
-      style: 0.0,
-      use_speaker_boost: true
+      stability: 0.71,           // Higher stability for smoother, less erratic speech
+      similarity_boost: 0.5,     // Lower similarity for more natural variation
+      style: 0.21,              // Slight style enhancement for warmth
+      use_speaker_boost: true    // Enhanced clarity
     };
 
     const finalVoiceSettings = { ...defaultVoiceSettings, ...voice_settings };
 
-    // Call ElevenLabs API
+    // Call ElevenLabs API with optimized settings
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
