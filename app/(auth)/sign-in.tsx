@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Image, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
@@ -33,9 +33,26 @@ export default function SignInScreen() {
     setLoading(false);
   };
 
+  const handleBoltBadgePress = () => {
+    Linking.openURL('https://bolt.new/');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#F0FDF4', '#FFFFFF']} style={styles.gradient}>
+        {/* Bolt.new Badge */}
+        <TouchableOpacity 
+          style={styles.boltBadge} 
+          onPress={handleBoltBadgePress}
+          activeOpacity={0.8}
+        >
+          <Image 
+            source={require('@/assets/images/black_circle_360x360.png')} 
+            style={styles.boltBadgeImage}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+
         <KeyboardAvoidingView 
           style={styles.content} 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -133,6 +150,21 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+  },
+  boltBadge: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 20 : 60,
+    right: 20,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  boltBadgeImage: {
+    width: 48,
+    height: 48,
   },
   content: {
     flex: 1,
