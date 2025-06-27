@@ -19,28 +19,10 @@
     "plugins": [
       "expo-router", 
       "expo-font", 
-      "expo-web-browser",
-      [
-        "@sentry/react-native/expo",
-        {
-          "organization": "mindbloom-q2",
-          "project": "react-native"
-        }
-      ]
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "hooks": {
-      "postPublish": [
-        {
-          "file": "sentry-expo/upload-sourcemaps",
-          "config": {
-            "organization": "mindbloom-q2",
-            "project": "react-native"
-          }
-        }
-      ]
     }
   }
 }
