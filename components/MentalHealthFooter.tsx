@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Switch, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Switch, Animated, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, Activity, TrendingUp, BookOpen, Phone, Wind, Moon, Pill, Plus, X, Calendar, Clock, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Smile, Frown, Meh, Zap, Cloud, Sun, Chrome as Home, Flower, User, Crown, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { Heart, Activity, TrendingUp, BookOpen, Phone, Wind, Moon, Pill, Plus, X, Calendar, Clock, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Smile, Frown, Meh, Zap, Cloud, Sun, Chrome as Home, Flower, User, Crown, ChevronUp, ChevronDown, Mic, MicOff } from 'lucide-react-native';
+import { Audio } from 'expo-av';
+import Voice from '@react-native-voice/voice';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { moodService, journalService } from '@/lib/database';
@@ -93,6 +95,14 @@ export function MentalHealthFooter() {
     moodCheckIns: true,
   });
 
+  // Voice features
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | Audio.Sound | null>(null);
+
   useEffect(() => {
     loadData();
   }, [user]);
@@ -104,6 +114,62 @@ export function MentalHealthFooter() {
       useNativeDriver: false,
     }).start();
   }, [isExpanded]);
+
+  useEffect(() => {
+    // Initialize speech recognition based on platform
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognitionInstance = new SpeechRecognition();
+        recognitionInstance.continuous = false;
+        recognitionInstance.interimResults = false;
+        recognitionInstance.lang = 'en-US';
+
+        recognitionInstance.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          setNotes(prev => prev + ' ' + transcript);
+          setIsListening(false);
+        };
+
+        recognitionInstance.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+          Alert.alert('Voice Recognition Error', 'Please try again or type your message.');
+        };
+
+        recognitionInstance.onend = () => {
+          setIsListening(false);
+        };
+
+        setRecognition(recognitionInstance);
+        setIsVoiceSupported(true);
+      }
+    } else {
+      // Initialize react-native-voice for mobile
+      Voice.onSpeechResults = (e) => {
+        if (e.value && e.value.length > 0) {
+          setNotes(prev => prev + ' ' + e.value[0]);
+          setIsListening(false);
+        }
+      };
+
+      Voice.onSpeechError = (e) => {
+        console.error('Voice error:', e);
+        setIsListening(false);
+        Alert.alert('Voice Recognition Error', 'Please try again or type your message.');
+      };
+
+      Voice.onSpeechEnd = () => {
+        setIsListening(false);
+      };
+
+      setIsVoiceSupported(true);
+
+      return () => {
+        Voice.destroy().then(Voice.removeAllListeners);
+      };
+    }
+  }, []);
 
   const loadData = async () => {
     if (!user) return;
@@ -126,6 +192,222 @@ export function MentalHealthFooter() {
 
   const toggleExpansion = () => {
     setIsExpanded(!isExpanded);
+  };
+
+  const startVoiceRecognition = async () => {
+    if (!isVoiceSupported) {
+      Alert.alert('Voice Not Supported', 'Voice recognition is not available on this device.');
+      return;
+    }
+
+    if (isListening) {
+      if (Platform.OS === 'web' && recognition) {
+        recognition.stop();
+      } else {
+        try {
+          await Voice.stop();
+        } catch (error) {
+          console.error('Error stopping voice recognition:', error);
+        }
+      }
+      setIsListening(false);
+    } else {
+      try {
+        if (Platform.OS === 'web' && recognition) {
+          recognition.start();
+        } else {
+          await Voice.start('en-US');
+        }
+        setIsListening(true);
+      } catch (error) {
+        console.error('Error starting voice recognition:', error);
+        Alert.alert('Voice Error', 'Could not start voice recognition. Please try again.');
+      }
+    }
+  };
+
+  const speakText = async (text: string) => {
+    if (!voiceEnabled) return;
+
+    try {
+      // Stop any current audio
+      await stopSpeaking();
+      
+      setIsSpeaking(true);
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        // Web implementation with ElevenLabs API
+        try {
+          const response = await fetch('/api/elevenlabs-tts', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text,
+              voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam voice - deep and commanding
+              voice_settings: {
+                stability: 0.85,        // Very high stability for controlled, deliberate speech
+                similarity_boost: 0.35, // Lower for more natural, less artificial variation
+                style: 0.45,           // Enhanced style for sophistication and depth
+                use_speaker_boost: true // Enhanced clarity and presence
+              }
+            }),
+          });
+
+          if (response.ok) {
+            // Get the audio as array buffer
+            const audioArrayBuffer = await response.arrayBuffer();
+            
+            // Create a proper blob with explicit MIME type
+            const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            // Create and configure audio element
+            const audio = new Audio();
+            setCurrentAudio(audio);
+
+            // Set up event handlers before setting src
+            audio.onended = () => {
+              setIsSpeaking(false);
+              setCurrentAudio(null);
+              URL.revokeObjectURL(audioUrl);
+            };
+
+            audio.onerror = (e) => {
+              console.warn('ElevenLabs audio failed, falling back to browser TTS');
+              setIsSpeaking(false);
+              setCurrentAudio(null);
+              URL.revokeObjectURL(audioUrl);
+              // Fallback to browser TTS
+              fallbackToWebSpeech(text);
+            };
+
+            audio.oncanplaythrough = () => {
+              audio.play().catch(() => {
+                console.warn('Audio play failed, falling back to browser TTS');
+                fallbackToWebSpeech(text);
+              });
+            };
+
+            // Set the source and load
+            audio.src = audioUrl;
+            audio.load();
+          } else {
+            throw new Error('ElevenLabs API failed');
+          }
+        } catch (error) {
+          console.warn('ElevenLabs TTS failed, using browser fallback:', error);
+          fallbackToWebSpeech(text);
+        }
+      } else {
+        // Mobile implementation with expo-av
+        try {
+          // First try to get audio from ElevenLabs API
+          const response = await fetch('/api/elevenlabs-tts', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text,
+              voiceId: 'pNInz6obpgDQGcFmaJgB',
+              voice_settings: {
+                stability: 0.85,
+                similarity_boost: 0.35,
+                style: 0.45,
+                use_speaker_boost: true
+              }
+            }),
+          });
+
+          if (response.ok) {
+            const audioArrayBuffer = await response.arrayBuffer();
+            const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            const { sound } = await Audio.Sound.createAsync(
+              { uri: audioUrl },
+              { shouldPlay: true, volume: 0.8 }
+            );
+
+            setCurrentAudio(sound);
+
+            sound.setOnPlaybackStatusUpdate((status) => {
+              if (status.isLoaded && status.didJustFinish) {
+                setIsSpeaking(false);
+                setCurrentAudio(null);
+                sound.unloadAsync();
+                URL.revokeObjectURL(audioUrl);
+              }
+            });
+          } else {
+            throw new Error('ElevenLabs API failed');
+          }
+        } catch (error) {
+          console.warn('Mobile TTS failed:', error);
+          setIsSpeaking(false);
+          setCurrentAudio(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error with text-to-speech:', error);
+      setIsSpeaking(false);
+      setCurrentAudio(null);
+    }
+  };
+
+  const fallbackToWebSpeech = (text: string) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.speechSynthesis) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      // Optimize browser TTS for deep, commanding delivery
+      utterance.rate = 0.65;    // Slower for more deliberate, controlled speech
+      utterance.pitch = 0.75;   // Lower pitch for deeper, more authoritative voice
+      utterance.volume = 0.9;   // Higher volume for presence
+      
+      utterance.onend = () => {
+        setIsSpeaking(false);
+      };
+      
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      setIsSpeaking(false);
+    }
+  };
+
+  const stopSpeaking = async () => {
+    if (Platform.OS === 'web') {
+      // Stop HTML audio
+      if (currentAudio && currentAudio instanceof HTMLAudioElement) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      
+      // Stop browser speech synthesis
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    } else {
+      // Stop expo-av sound
+      if (currentAudio && typeof (currentAudio as any).stopAsync === 'function') {
+        try {
+          await (currentAudio as Audio.Sound).stopAsync();
+          await (currentAudio as Audio.Sound).unloadAsync();
+        } catch (error) {
+          console.warn('Error stopping mobile audio:', error);
+        }
+      }
+    }
+    
+    setCurrentAudio(null);
+    setIsSpeaking(false);
   };
 
   const saveMoodEntry = async () => {
@@ -292,15 +574,36 @@ export function MentalHealthFooter() {
             </View>
 
             <Text style={[styles.sectionLabel, isDark && styles.darkText]}>Notes</Text>
-            <TextInput
-              style={[styles.notesInput, isDark && styles.darkInput]}
-              placeholder="Any additional thoughts or context..."
-              placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-            />
+            <View style={styles.notesInputContainer}>
+              <TextInput
+                style={[styles.notesInput, isDark && styles.darkInput]}
+                placeholder="Any additional thoughts or context..."
+                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={3}
+              />
+              
+              {isVoiceSupported && (
+                <TouchableOpacity 
+                  style={[styles.micButton, isListening && styles.micButtonActive]}
+                  onPress={startVoiceRecognition}
+                >
+                  {isListening ? (
+                    <X size={16} color="#FFFFFF" />
+                  ) : (
+                    <Mic size={16} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {isListening && (
+              <Text style={[styles.listeningText, isDark && styles.darkSubtitle]}>
+                🎤 Listening... Speak now
+              </Text>
+            )}
 
             <TouchableOpacity
               style={[styles.saveButton, !selectedMood && styles.disabledButton]}
@@ -356,15 +659,36 @@ export function MentalHealthFooter() {
             </View>
 
             <Text style={[styles.sectionLabel, isDark && styles.darkText]}>Notes</Text>
-            <TextInput
-              style={[styles.notesInput, isDark && styles.darkInput]}
-              placeholder="Additional details about this symptom..."
-              placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-            />
+            <View style={styles.notesInputContainer}>
+              <TextInput
+                style={[styles.notesInput, isDark && styles.darkInput]}
+                placeholder="Additional details about this symptom..."
+                placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={3}
+              />
+              
+              {isVoiceSupported && (
+                <TouchableOpacity 
+                  style={[styles.micButton, isListening && styles.micButtonActive]}
+                  onPress={startVoiceRecognition}
+                >
+                  {isListening ? (
+                    <X size={16} color="#FFFFFF" />
+                  ) : (
+                    <Mic size={16} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {isListening && (
+              <Text style={[styles.listeningText, isDark && styles.darkSubtitle]}>
+                🎤 Listening... Speak now
+              </Text>
+            )}
 
             <TouchableOpacity
               style={[styles.saveButton, !newSymptom.trim() && styles.disabledButton]}
@@ -891,6 +1215,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#374151',
     color: '#F9FAFB',
   },
+  notesInputContainer: {
+    position: 'relative',
+    marginBottom: 24,
+  },
   notesInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -901,7 +1229,28 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     minHeight: 80,
     textAlignVertical: 'top',
-    marginBottom: 24,
+    paddingRight: 50, // Space for the mic button
+  },
+  micButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micButtonActive: {
+    backgroundColor: '#EF4444',
+  },
+  listeningText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#10B981',
+    textAlign: 'center',
+    marginBottom: 16,
   },
   saveButton: {
     backgroundColor: '#10B981',
