@@ -204,73 +204,114 @@ export default function HomeScreen() {
       
       setIsSpeaking(true);
 
-      // Call our ElevenLabs API route
-      const response = await fetch('/api/elevenlabs-tts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text,
-          voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam voice - natural and friendly
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            style: 0.0,
-            use_speaker_boost: true
-          }
-        }),
-      });
+      // Try ElevenLabs API first
+      try {
+        const response = await fetch('/api/elevenlabs-tts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text,
+            voiceId: 'pNInz6obpgDQGcFmaJgB',
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+              style: 0.0,
+              use_speaker_boost: true
+            }
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate speech');
+        if (response.ok) {
+          // Get the audio as array buffer
+          const audioArrayBuffer = await response.arrayBuffer();
+          
+          // Create a proper blob with explicit MIME type
+          const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
+          const audioUrl = URL.createObjectURL(audioBlob);
+
+          // Create and configure audio element
+          const audio = new Audio();
+          setCurrentAudio(audio);
+
+          // Set up event handlers before setting src
+          audio.onended = () => {
+            setIsSpeaking(false);
+            setCurrentAudio(null);
+            URL.revokeObjectURL(audioUrl);
+          };
+
+          audio.onerror = (e) => {
+            console.warn('ElevenLabs audio failed, falling back to browser TTS');
+            setIsSpeaking(false);
+            setCurrentAudio(null);
+            URL.revokeObjectURL(audioUrl);
+            // Fallback to browser TTS
+            fallbackToWebSpeech(text);
+          };
+
+          audio.oncanplaythrough = () => {
+            audio.play().catch(() => {
+              console.warn('Audio play failed, falling back to browser TTS');
+              fallbackToWebSpeech(text);
+            });
+          };
+
+          // Set the source and load
+          audio.src = audioUrl;
+          audio.load();
+        } else {
+          throw new Error('ElevenLabs API failed');
+        }
+      } catch (error) {
+        console.warn('ElevenLabs TTS failed, using browser fallback:', error);
+        fallbackToWebSpeech(text);
       }
-
-      // Get the audio blob
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      // Create and play audio
-      const audio = new Audio(audioUrl);
-      setCurrentAudio(audio);
-
-      audio.onended = () => {
-        setIsSpeaking(false);
-        setCurrentAudio(null);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      audio.onerror = () => {
-        setIsSpeaking(false);
-        setCurrentAudio(null);
-        URL.revokeObjectURL(audioUrl);
-        console.error('Audio playback error');
-      };
-
-      await audio.play();
     } catch (error) {
       console.error('Error with text-to-speech:', error);
       setIsSpeaking(false);
       setCurrentAudio(null);
-      // Fallback to browser speech synthesis if ElevenLabs fails
-      if (window.speechSynthesis) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.8;
-        utterance.pitch = 1;
-        utterance.volume = 0.8;
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-        window.speechSynthesis.speak(utterance);
-      }
+    }
+  };
+
+  const fallbackToWebSpeech = (text: string) => {
+    if (window.speechSynthesis) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.8;
+      utterance.pitch = 1;
+      utterance.volume = 0.8;
+      
+      utterance.onend = () => {
+        setIsSpeaking(false);
+      };
+      
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      setIsSpeaking(false);
     }
   };
 
   const stopSpeaking = () => {
+    // Stop HTML audio
     if (currentAudio) {
       currentAudio.pause();
       currentAudio.currentTime = 0;
       setCurrentAudio(null);
     }
+    
+    // Stop browser speech synthesis
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    
     setIsSpeaking(false);
   };
 
