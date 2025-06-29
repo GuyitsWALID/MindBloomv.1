@@ -566,7 +566,10 @@ export default function JournalScreen() {
         colors={isDark ? ['#1F2937', '#111827'] : ['#FEF3C7', '#FFFFFF']} 
         style={styles.gradient}
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 210 }}
+        >
           {/* Header */}
           <View style={styles.headerContainer}>
             <View style={styles.headerTop}>

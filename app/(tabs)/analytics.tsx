@@ -188,7 +188,10 @@ export default function AnalyticsScreen() {
         colors={isDark ? ['#1F2937', '#111827'] : ['#EDE9FE', '#FFFFFF']} 
         style={styles.gradient}
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 210 }}
+        >
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.greeting, isDark && styles.darkText]}>Your Analytics 📊</Text>

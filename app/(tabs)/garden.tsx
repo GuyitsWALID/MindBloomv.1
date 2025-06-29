@@ -187,7 +187,10 @@ export default function GardenScreen() {
         colors={isDark ? ['#1F2937', '#111827'] : ['#ECFDF5', '#F0FDF4']} 
         style={styles.gradient}
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 210 }}
+        >
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.greeting, isDark && styles.darkText]}>Your Wellness Garden 🌻</Text>

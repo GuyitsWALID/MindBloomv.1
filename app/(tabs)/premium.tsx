@@ -238,7 +238,10 @@ export default function PremiumScreen() {
           colors={isDark ? ['#1F2937', '#111827'] : ['#FEF3C7', '#FFFFFF']} 
           style={styles.gradient}
         >
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 210 }}
+          >
             <View style={styles.header}>
               <Crown size={60} color="#F59E0B" />
               <Text style={[styles.title, isDark && styles.darkText]}>You're Premium! 👑</Text>
@@ -320,7 +323,10 @@ export default function PremiumScreen() {
         colors={isDark ? ['#1F2937', '#111827'] : ['#FEF3C7', '#FFFFFF']} 
         style={styles.gradient}
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 210 }}
+        >
           <View style={styles.header}>
             <Crown size={60} color="#F59E0B" />
             <Text style={[styles.title, isDark && styles.darkText]}>Choose Your Plan</Text>

@@ -555,7 +555,7 @@ export default function HomeScreen() {
       >
         <ScrollView 
           showsVerticalScrollIndicator={false} 
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 180 }]} // Increased padding for compact footer
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 210 }]}
         >
           {/* Header with Theme Toggle */}
           <View style={styles.header}>
