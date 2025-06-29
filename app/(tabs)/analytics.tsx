@@ -6,7 +6,7 @@ import { ChartBar as BarChart3, TrendingUp, Calendar, Brain, Heart, Target, Zap,
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { analyticsService, wellnessService } from '@/lib/database';
+import { analyticsService, wellnessService, moodService, journalService } from '@/lib/database';
 import { PremiumFeatureGate } from '@/components/PremiumFeatureGate';
 
 type TimeRange = 'week' | 'month' | 'year';
@@ -26,6 +26,8 @@ export default function AnalyticsScreen() {
   const [advancedAnalytics, setAdvancedAnalytics] = useState<any>(null);
   const [moodPrediction, setMoodPrediction] = useState<any>(null);
   const [wellnessScore, setWellnessScore] = useState<number>(0);
+  const [journalStats, setJournalStats] = useState<any>(null);
+  const [gardenStats, setGardenStats] = useState<any>(null);
 
   useEffect(() => {
     if (user) {
@@ -76,69 +78,56 @@ export default function AnalyticsScreen() {
     if (!user) return;
     
     try {
-      const [weeklyMoodData, activityStats] = await Promise.all([
-        analyticsService.getWeeklyMoodData(user.id),
-        wellnessService.getActivityStats(user.id)
+      // Calculate date range based on selection
+      const endDate = new Date();
+      const startDate = new Date();
+      
+      switch (selectedRange) {
+        case 'week':
+          startDate.setDate(endDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(endDate.getMonth() - 1);
+          break;
+        case 'year':
+          startDate.setFullYear(endDate.getFullYear() - 1);
+          break;
+      }
+
+      // Load real data from database
+      const [
+        moodEntries,
+        wellnessActivities,
+        journalEntries,
+        journalStatsData,
+        gardenStatsData
+      ] = await Promise.all([
+        moodService.getMoodEntriesForPeriod(user.id, startDate.toISOString(), endDate.toISOString()),
+        wellnessService.getActivitiesForPeriod(user.id, startDate.toISOString(), endDate.toISOString()),
+        journalService.getJournalEntries(user.id, 50), // Get more entries for better analysis
+        journalService.getJournalStats(user.id),
+        analyticsService.getDashboardData(user.id)
       ]);
-      
-      setMoodData(weeklyMoodData);
-      
-      // Convert activity stats to activities array
-      const activitiesArray = Object.entries(activityStats.activityCounts).map(([name, count]) => ({
-        name: name.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        count: count as number,
-        trend: Math.random() > 0.5 ? 'up' : 'down',
-        change: Math.round(Math.random() * 30 + 5)
-      }));
-      
-      setActivities(activitiesArray);
-      
-      // Calculate streaks
-      const currentStreaks = {
-        meditation: Math.floor(Math.random() * 15) + 1,
-        journal: Math.floor(Math.random() * 20) + 1,
-        gratitude: Math.floor(Math.random() * 12) + 1,
-        exercise: Math.floor(Math.random() * 8) + 1
-      };
-      setStreaks(currentStreaks);
-      
+
+      // Process mood data for chart
+      const processedMoodData = processMoodDataForChart(moodEntries, selectedRange);
+      setMoodData(processedMoodData);
+
+      // Process activities data
+      const processedActivities = processActivitiesData(wellnessActivities);
+      setActivities(processedActivities);
+
+      // Calculate real streaks
+      const calculatedStreaks = calculateStreaks(moodEntries, wellnessActivities, journalEntries);
+      setStreaks(calculatedStreaks);
+
       // Generate insights based on real data
-      const generatedInsights = [
-        {
-          icon: TrendingUp,
-          title: 'Mood Improvement',
-          description: `Your mood has improved ${Math.round(Math.random() * 30 + 10)}% this ${selectedRange}`,
-          color: '#10B981',
-          change: `+${Math.round(Math.random() * 30 + 10)}%`,
-          trend: 'positive'
-        },
-        {
-          icon: Brain,
-          title: 'Mindfulness Growth',
-          description: `You've completed ${activityStats.completedActivities} wellness activities`,
-          color: '#3B82F6',
-          change: `${activityStats.completedActivities} activities`,
-          trend: 'positive'
-        },
-        {
-          icon: Target,
-          title: 'Goal Progress',
-          description: `You're ${activityStats.completionRate}% toward your wellness goals`,
-          color: '#8B5CF6',
-          change: `${activityStats.completionRate}%`,
-          trend: activityStats.completionRate > 70 ? 'positive' : 'neutral'
-        },
-        {
-          icon: Zap,
-          title: 'Consistency',
-          description: `Your longest streak is ${Math.max(...Object.values(currentStreaks))} days`,
-          color: '#F59E0B',
-          change: `${Math.max(...Object.values(currentStreaks))} days`,
-          trend: 'positive'
-        }
-      ];
-      
+      const generatedInsights = generateRealInsights(moodEntries, wellnessActivities, journalEntries);
       setInsights(generatedInsights);
+
+      // Set stats
+      setJournalStats(journalStatsData);
+      setGardenStats(gardenStatsData.gardenStats);
       
     } catch (error) {
       console.error('Error loading analytics data:', error);
@@ -147,14 +136,213 @@ export default function AnalyticsScreen() {
     }
   };
 
+  const processMoodDataForChart = (moodEntries: any[], range: TimeRange) => {
+    const moodValues: Record<string, number> = {
+      'excellent': 10,
+      'happy': 9,
+      'good': 8,
+      'calm': 7,
+      'neutral': 6,
+      'tired': 5,
+      'anxious': 4,
+      'low': 3,
+      'sad': 2,
+      'poor': 1
+    };
+
+    const days = range === 'week' ? 7 : range === 'month' ? 30 : 365;
+    const dailyData = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      
+      let dayName: string;
+      if (range === 'week') {
+        dayName = date.toLocaleDateString('en', { weekday: 'short' });
+      } else if (range === 'month') {
+        dayName = date.getDate().toString();
+      } else {
+        dayName = date.toLocaleDateString('en', { month: 'short' });
+      }
+      
+      const dayEntries = moodEntries.filter(entry => {
+        const entryDate = new Date(entry.created_at);
+        return entryDate.toDateString() === date.toDateString();
+      });
+      
+      const averageMood = dayEntries.length > 0
+        ? dayEntries.reduce((sum, entry) => sum + (moodValues[entry.mood] || 6), 0) / dayEntries.length
+        : 0;
+      
+      // Calculate energy based on mood and activities for that day
+      const dayActivities = activities.filter(activity => {
+        const activityDate = new Date(activity.created_at);
+        return activityDate.toDateString() === date.toDateString();
+      });
+      
+      const energyBoost = dayActivities.length * 0.5;
+      const energy = averageMood > 0 ? Math.min(10, averageMood + energyBoost) : 0;
+      
+      dailyData.push({
+        day: dayName,
+        mood: Math.round(averageMood),
+        energy: Math.round(energy)
+      });
+    }
+    
+    return dailyData;
+  };
+
+  const processActivitiesData = (wellnessActivities: any[]) => {
+    const activityCounts = wellnessActivities.reduce((acc, activity) => {
+      const name = activity.activity_type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+      acc[name] = (acc[name] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(activityCounts).map(([name, count]) => {
+      // Calculate trend based on recent vs older activities
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      const recentCount = wellnessActivities.filter(activity => 
+        activity.activity_type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) === name &&
+        new Date(activity.created_at) > weekAgo
+      ).length;
+      
+      const olderCount = count - recentCount;
+      const trend = recentCount > olderCount ? 'up' : recentCount < olderCount ? 'down' : 'stable';
+      const change = olderCount > 0 ? Math.round(((recentCount - olderCount) / olderCount) * 100) : 0;
+      
+      return {
+        name,
+        count,
+        trend,
+        change: Math.abs(change)
+      };
+    });
+  };
+
+  const calculateStreaks = (moodEntries: any[], activities: any[], journalEntries: any[]) => {
+    const calculateStreak = (entries: any[], type: 'daily' | 'activity') => {
+      if (entries.length === 0) return 0;
+      
+      const sortedEntries = entries.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      let streak = 0;
+      let currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+      
+      for (const entry of sortedEntries) {
+        const entryDate = new Date(entry.created_at);
+        entryDate.setHours(0, 0, 0, 0);
+        
+        const daysDiff = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff === streak) {
+          streak++;
+          currentDate.setDate(currentDate.getDate() - 1);
+        } else if (daysDiff > streak) {
+          break;
+        }
+      }
+      
+      return streak;
+    };
+
+    return {
+      meditation: calculateStreak(activities.filter(a => a.activity_type === 'meditation'), 'activity'),
+      journal: calculateStreak(journalEntries, 'daily'),
+      mood: calculateStreak(moodEntries, 'daily'),
+      exercise: calculateStreak(activities.filter(a => a.activity_type === 'exercise'), 'activity')
+    };
+  };
+
+  const generateRealInsights = (moodEntries: any[], activities: any[], journalEntries: any[]) => {
+    const insights = [];
+    
+    // Mood trend analysis
+    if (moodEntries.length >= 2) {
+      const moodValues: Record<string, number> = {
+        'excellent': 10, 'happy': 9, 'good': 8, 'calm': 7, 'neutral': 6,
+        'tired': 5, 'anxious': 4, 'low': 3, 'sad': 2, 'poor': 1
+      };
+      
+      const recentMoods = moodEntries.slice(0, Math.ceil(moodEntries.length / 2));
+      const olderMoods = moodEntries.slice(Math.ceil(moodEntries.length / 2));
+      
+      const recentAvg = recentMoods.reduce((sum, entry) => sum + (moodValues[entry.mood] || 6), 0) / recentMoods.length;
+      const olderAvg = olderMoods.reduce((sum, entry) => sum + (moodValues[entry.mood] || 6), 0) / olderMoods.length;
+      
+      const improvement = ((recentAvg - olderAvg) / olderAvg) * 100;
+      
+      insights.push({
+        icon: TrendingUp,
+        title: 'Mood Trend',
+        description: improvement > 0 
+          ? `Your mood has improved ${Math.round(improvement)}% recently`
+          : improvement < 0 
+          ? `Your mood has declined ${Math.round(Math.abs(improvement))}% recently`
+          : 'Your mood has been stable',
+        color: improvement > 0 ? '#10B981' : improvement < 0 ? '#EF4444' : '#6B7280',
+        change: `${improvement > 0 ? '+' : ''}${Math.round(improvement)}%`,
+        trend: improvement > 0 ? 'positive' : improvement < 0 ? 'negative' : 'neutral'
+      });
+    }
+
+    // Activity analysis
+    const completedActivities = activities.filter(a => a.completed).length;
+    insights.push({
+      icon: Brain,
+      title: 'Wellness Activities',
+      description: `You've completed ${completedActivities} wellness activities`,
+      color: '#3B82F6',
+      change: `${completedActivities} activities`,
+      trend: 'positive'
+    });
+
+    // Journal consistency
+    if (journalEntries.length > 0) {
+      const daysWithEntries = new Set(
+        journalEntries.map(entry => new Date(entry.created_at).toDateString())
+      ).size;
+      
+      insights.push({
+        icon: Target,
+        title: 'Journal Consistency',
+        description: `You've journaled on ${daysWithEntries} different days`,
+        color: '#8B5CF6',
+        change: `${daysWithEntries} days`,
+        trend: 'positive'
+      });
+    }
+
+    // Streak analysis
+    const maxStreak = Math.max(...Object.values(streaks));
+    insights.push({
+      icon: Zap,
+      title: 'Best Streak',
+      description: `Your longest streak is ${maxStreak} days`,
+      color: '#F59E0B',
+      change: `${maxStreak} days`,
+      trend: 'positive'
+    });
+
+    return insights;
+  };
+
   const getBarHeight = (value: number) => {
-    return Math.max((value / 10) * 80, 8); // Min height of 8, max of 80
+    return Math.max((value / 10) * 80, 8);
   };
 
   const getMoodColor = (mood: number) => {
     if (mood >= 8) return '#10B981';
     if (mood >= 6) return '#F59E0B';
-    return '#EF4444';
+    if (mood >= 4) return '#EF4444';
+    return '#9CA3AF';
   };
 
   const getWellnessScoreColor = (score: number) => {
@@ -307,46 +495,57 @@ export default function AnalyticsScreen() {
               <BarChart3 size={24} color="#8B5CF6" />
               <Text style={[styles.chartTitle, isDark && styles.darkText]}>Mood & Energy Levels</Text>
             </View>
-            <View style={styles.chart}>
-              <View style={styles.chartLegend}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#8B5CF6' }]} />
-                  <Text style={[styles.legendText, isDark && styles.darkLegendText]}>Mood</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
-                  <Text style={[styles.legendText, isDark && styles.darkLegendText]}>Energy</Text>
-                </View>
-              </View>
-              <View style={styles.chartBars}>
-                {moodData.map((data, index) => (
-                  <View key={index} style={styles.barGroup}>
-                    <View style={styles.barContainer}>
-                      <View
-                        style={[
-                          styles.bar,
-                          {
-                            height: getBarHeight(data.mood),
-                            backgroundColor: getMoodColor(data.mood)
-                          }
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.bar,
-                          {
-                            height: getBarHeight(data.energy),
-                            backgroundColor: '#10B981',
-                            marginLeft: 4
-                          }
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.barLabel, isDark && styles.darkBarLabel]}>{data.day}</Text>
+            {moodData.length > 0 ? (
+              <View style={styles.chart}>
+                <View style={styles.chartLegend}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#8B5CF6' }]} />
+                    <Text style={[styles.legendText, isDark && styles.darkLegendText]}>Mood</Text>
                   </View>
-                ))}
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+                    <Text style={[styles.legendText, isDark && styles.darkLegendText]}>Energy</Text>
+                  </View>
+                </View>
+                <View style={styles.chartBars}>
+                  {moodData.map((data, index) => (
+                    <View key={index} style={styles.barGroup}>
+                      <View style={styles.barContainer}>
+                        <View
+                          style={[
+                            styles.bar,
+                            {
+                              height: getBarHeight(data.mood),
+                              backgroundColor: getMoodColor(data.mood)
+                            }
+                          ]}
+                        />
+                        <View
+                          style={[
+                            styles.bar,
+                            {
+                              height: getBarHeight(data.energy),
+                              backgroundColor: '#10B981',
+                              marginLeft: 4
+                            }
+                          ]}
+                        />
+                      </View>
+                      <Text style={[styles.barLabel, isDark && styles.darkBarLabel]}>{data.day}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
-            </View>
+            ) : (
+              <View style={styles.noDataContainer}>
+                <Text style={[styles.noDataText, isDark && styles.darkText]}>
+                  No mood data available for the selected period
+                </Text>
+                <Text style={[styles.noDataSubtext, isDark && styles.darkSubtitle]}>
+                  Start tracking your mood to see trends and insights
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Advanced Analytics - Premium Feature */}
@@ -381,11 +580,7 @@ export default function AnalyticsScreen() {
                   <Target size={20} color="#10B981" />
                   <Text style={[styles.advancedTitle, isDark && styles.darkText]}>Activity Impact</Text>
                 </View>
-                {(advancedAnalytics?.activityCorrelations || [
-                  { activity: 'meditation', averageImpact: 8.2, consistency: 0.85 },
-                  { activity: 'exercise', averageImpact: 7.8, consistency: 0.72 },
-                  { activity: 'journaling', averageImpact: 7.5, consistency: 0.90 }
-                ]).slice(0, 3).map((correlation: any, index: number) => (
+                {(advancedAnalytics?.activityCorrelations || []).slice(0, 3).map((correlation: any, index: number) => (
                   <View key={index} style={styles.correlationRow}>
                     <Text style={[styles.correlationActivity, isDark && styles.darkText]}>
                       {correlation.activity.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
@@ -401,57 +596,6 @@ export default function AnalyticsScreen() {
                   </View>
                 ))}
               </View>
-
-              {/* Personalized Recommendations */}
-              <View style={[styles.advancedCard, isDark && styles.darkCard]}>
-                <View style={styles.advancedHeader}>
-                  <Lightbulb size={20} color="#F59E0B" />
-                  <Text style={[styles.advancedTitle, isDark && styles.darkText]}>AI Recommendations</Text>
-                </View>
-                {(advancedAnalytics?.recommendations || [
-                  {
-                    title: 'Increase Morning Meditation',
-                    description: 'Your mood scores are 23% higher on days when you meditate in the morning.',
-                    priority: 'high',
-                    expectedImpact: 'Can improve daily mood by 15-25%',
-                    actions: ['Set a 7 AM meditation reminder', 'Start with 5-minute sessions']
-                  },
-                  {
-                    title: 'Evening Journaling Routine',
-                    description: 'Consistent evening journaling correlates with better sleep quality and next-day energy.',
-                    priority: 'medium',
-                    expectedImpact: 'Improves sleep quality by 20%',
-                    actions: ['Journal 30 minutes before bed', 'Focus on gratitude and reflection']
-                  }
-                ]).map((rec: any, index: number) => (
-                  <View key={index} style={styles.recommendationItem}>
-                    <View style={styles.recommendationHeader}>
-                      <Text style={[styles.recommendationTitle, isDark && styles.darkText]}>{rec.title}</Text>
-                      <View style={[
-                        styles.priorityBadge,
-                        { backgroundColor: rec.priority === 'high' ? '#EF4444' : rec.priority === 'medium' ? '#F59E0B' : '#6B7280' }
-                      ]}>
-                        <Text style={styles.priorityText}>{rec.priority}</Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.recommendationDescription, isDark && styles.darkSubtitle]}>
-                      {rec.description}
-                    </Text>
-                    {rec.expectedImpact && (
-                      <Text style={[styles.expectedImpact, isDark && styles.darkSubtitle]}>
-                        Expected impact: {rec.expectedImpact}
-                      </Text>
-                    )}
-                    <View style={styles.recommendationActions}>
-                      {rec.actions.slice(0, 2).map((action: string, actionIndex: number) => (
-                        <Text key={actionIndex} style={[styles.recommendationAction, isDark && styles.darkSubtitle]}>
-                          • {action}
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-                ))}
-              </View>
             </View>
           </PremiumFeatureGate>
 
@@ -462,7 +606,7 @@ export default function AnalyticsScreen() {
               {Object.entries(streaks).map(([activity, days]) => (
                 <View key={activity} style={[styles.streakCard, isDark && styles.darkCard]}>
                   <Award size={20} color="#F59E0B" />
-                  <Text style={[styles.streakDays, isDark && styles.darkText]}>{days}</Text>
+                  <Text style={[styles.streakDays, isDark && styles.darkText]}>{days as number}</Text>
                   <Text style={[styles.streakLabel, isDark && styles.darkSubtitle]}>
                     {activity.charAt(0).toUpperCase() + activity.slice(1)}
                   </Text>
@@ -481,7 +625,7 @@ export default function AnalyticsScreen() {
                     <insight.icon size={20} color={insight.color} />
                     <Text style={[
                       styles.insightChange,
-                      { color: insight.trend === 'positive' ? '#10B981' : '#6B7280' }
+                      { color: insight.trend === 'positive' ? '#10B981' : insight.trend === 'negative' ? '#EF4444' : '#6B7280' }
                     ]}>
                       {insight.change}
                     </Text>
@@ -498,7 +642,7 @@ export default function AnalyticsScreen() {
           {/* Activity Summary */}
           {activities.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, isDark && styles.darkText]}>This Week's Activities</Text>
+              <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Activity Summary</Text>
               <View style={[styles.activitiesCard, isDark && styles.darkCard]}>
                 {activities.map((activity, index) => (
                   <View key={index} style={styles.activityRow}>
@@ -511,13 +655,14 @@ export default function AnalyticsScreen() {
                     <View style={styles.activityTrend}>
                       <TrendingUp 
                         size={16} 
-                        color={activity.trend === 'up' ? '#10B981' : '#EF4444'} 
+                        color={activity.trend === 'up' ? '#10B981' : activity.trend === 'down' ? '#EF4444' : '#6B7280'} 
                       />
                       <Text style={[
                         styles.activityChange,
-                        { color: activity.trend === 'up' ? '#10B981' : '#EF4444' }
+                        { color: activity.trend === 'up' ? '#10B981' : activity.trend === 'down' ? '#EF4444' : '#6B7280' }
                       ]}>
-                        {activity.trend === 'up' ? '+' : '-'}{activity.change}%
+                        {activity.trend === 'up' ? '+' : activity.trend === 'down' ? '-' : ''}
+                        {activity.change > 0 ? `${activity.change}%` : 'No change'}
                       </Text>
                     </View>
                   </View>
@@ -528,7 +673,7 @@ export default function AnalyticsScreen() {
 
           {/* Weekly Summary */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Weekly Summary</Text>
+            <Text style={[styles.sectionTitle, isDark && styles.darkText]}>Summary</Text>
             <View style={[styles.summaryCard, isDark && styles.darkCard]}>
               <View style={styles.summaryRow}>
                 <Heart size={20} color="#EF4444" />
@@ -545,18 +690,27 @@ export default function AnalyticsScreen() {
               <View style={styles.summaryRow}>
                 <Target size={20} color="#10B981" />
                 <View style={styles.summaryContent}>
-                  <Text style={[styles.summaryTitle, isDark && styles.darkText]}>Goals Achieved</Text>
+                  <Text style={[styles.summaryTitle, isDark && styles.darkText]}>Activities Completed</Text>
                   <Text style={[styles.summaryValue, isDark && styles.darkSubtitle]}>
-                    {activities.reduce((sum, a) => sum + a.count, 0)} activities completed
+                    {activities.reduce((sum, a) => sum + a.count, 0)} total
                   </Text>
                 </View>
               </View>
               <View style={styles.summaryRow}>
                 <Calendar size={20} color="#3B82F6" />
                 <View style={styles.summaryContent}>
-                  <Text style={[styles.summaryTitle, isDark && styles.darkText]}>Active Days</Text>
+                  <Text style={[styles.summaryTitle, isDark && styles.darkText]}>Journal Entries</Text>
                   <Text style={[styles.summaryValue, isDark && styles.darkSubtitle]}>
-                    {moodData.filter(d => d.mood > 0).length} out of 7 days
+                    {journalStats?.totalEntries || 0} entries
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.summaryRow}>
+                <Award size={20} color="#F59E0B" />
+                <View style={styles.summaryContent}>
+                  <Text style={[styles.summaryTitle, isDark && styles.darkText]}>Garden Health</Text>
+                  <Text style={[styles.summaryValue, isDark && styles.darkSubtitle]}>
+                    {gardenStats?.averageHealth || 0}%
                   </Text>
                 </View>
               </View>
@@ -857,6 +1011,22 @@ const styles = StyleSheet.create({
   darkBarLabel: {
     color: '#9CA3AF',
   },
+  noDataContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  noDataText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  noDataSubtext: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
   section: {
     margin: 24,
     marginTop: 0,
@@ -921,57 +1091,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
-  },
-  recommendationItem: {
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  recommendationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  recommendationTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
-    color: '#1F2937',
-    flex: 1,
-  },
-  priorityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  priorityText: {
-    fontSize: 10,
-    fontFamily: 'Inter-Bold',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
-  },
-  recommendationDescription: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  expectedImpact: {
-    fontSize: 13,
-    fontFamily: 'Inter-Medium',
-    color: '#10B981',
-    marginBottom: 8,
-  },
-  recommendationActions: {
-    marginLeft: 12,
-  },
-  recommendationAction: {
-    fontSize: 13,
-    fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    marginBottom: 4,
   },
   streaksGrid: {
     flexDirection: 'row',
