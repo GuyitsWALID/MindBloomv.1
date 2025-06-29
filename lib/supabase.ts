@@ -33,8 +33,21 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
+// Create the Supabase client first
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: ExpoSecureStoreAdapter,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+  global: {
+    fetch: customFetch,
+  },
+});
+
 // Custom fetch interceptor to handle refresh token errors
-const customFetch = async (url: RequestInfo | URL, options?: RequestInit) => {
+async function customFetch(url: RequestInfo | URL, options?: RequestInit) {
   const response = await fetch(url, options);
   
   // Check if this is a Supabase auth request that failed with refresh token error
@@ -48,6 +61,9 @@ const customFetch = async (url: RequestInfo | URL, options?: RequestInit) => {
         } else {
           await SecureStore.deleteItemAsync('sb-qyjflaqocyliwbqloukn-auth-token');
         }
+        
+        // Explicitly sign out to clear client-side session state
+        await supabase.auth.signOut();
       }
     } catch (error) {
       // Ignore JSON parsing errors
@@ -55,16 +71,4 @@ const customFetch = async (url: RequestInfo | URL, options?: RequestInit) => {
   }
   
   return response;
-};
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: ExpoSecureStoreAdapter,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-  global: {
-    fetch: customFetch,
-  },
-});
+}
