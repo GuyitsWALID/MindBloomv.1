@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, Activity, TrendingUp, BookOpen, Phone, Wind, Moon, Pill, Plus, X, Calendar, Clock, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Smile, Frown, Meh, Zap, Cloud, Sun, Chrome as Home, Flower, User, Crown, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { Mic, MicOff } from 'lucide-react-native';
-import { Audio } from 'expo-av';
+import { Audio } from '@/lib/audio';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { moodService, journalService } from '@/lib/database';
@@ -97,7 +97,7 @@ export function MentalHealthFooter() {
 
   // Voice features
   const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [recognition,  setRecognition] = useState<SpeechRecognition | null>(null);
   const [isVoiceSupported, setIsVoiceSupported] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);

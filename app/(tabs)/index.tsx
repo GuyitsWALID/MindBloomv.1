@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Brain, Sparkles, MessageCircle, Heart, Zap, Sun, Moon, Mic, MicOff, Volume2, VolumeX, BookOpen, Calendar, Target } from 'lucide-react-native';
-import { Audio } from 'expo-av';
+import { Audio } from '@/lib/audio';
 import { MoodSelector } from '@/components/MoodSelector';
 import { WellnessCard } from '@/components/WellnessCard';
 import { AIInsight } from '@/components/AIInsight';

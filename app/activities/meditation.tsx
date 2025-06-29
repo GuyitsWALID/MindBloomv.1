@@ -7,6 +7,7 @@ import { Play, Pause, RotateCcw, CircleCheck as CheckCircle, ArrowLeft, Volume2,
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { wellnessService } from '@/lib/database';
+import { Audio } from '@/lib/audio';
 
 // Audio tracks for meditation with web-compatible URLs
 const MEDITATION_TRACKS = [

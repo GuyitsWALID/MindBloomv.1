@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PenTool, Sparkles, Calendar, Tag, Search, Filter, FileText, Brain, Cloud, Mic, MicOff, Volume2, VolumeX } from 'lucide-react-native';
-import { Audio } from 'expo-av';
+import { Audio } from '@/lib/audio';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
